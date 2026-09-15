@@ -1,0 +1,32 @@
+# Rust / Anchor
+program/target/
+program/.anchor
+
+# Node
+node_modules/
+*.tsbuildinfo
+next-env.d.ts
+
+# Next.js
+.next/
+out/
+.vercel
+
+# env files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# logs / local
+*.log
+convex-dev.log
+vite-dev.log
+
+# misc
+.DS_Store
+*.pem
+
+# Solana wallet/keypair files (never commit)
+*.json-*
+wallets/
+id.json
