@@ -1,0 +1,21 @@
+[features]
+seeds = true
+skip-lint = false
+
+[programs.devnet]
+drip = "8beC3twEfuHXr5nhVVmbakLdsLqdKShSWQoPhbb5mHMU"
+
+[programs.mainnet]
+drip = "8beC3twEfuHXr5nhVVmbakLdsLqdKShSWQoPhbb5mHMU"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[test]
+startup_wait = 5000
+shutdown_wait = 2000
+upgradeable = true
+
+[scripts]
+test = "cargo test"
