@@ -30,3 +30,8 @@ vite-dev.log
 *.json-*
 wallets/
 id.json
+
+# agent / vibe-coding notes (never commit)
+AGENTS.md
+CLAUDE.md
+tasks/
