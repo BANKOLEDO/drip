@@ -1,0 +1,13 @@
+[workspace]
+members = ["programs/drip"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+authors = ["Drip"]
+edition = "2021"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
