@@ -1,8 +1,9 @@
 import { cn } from "@/lib/cn";
 
 /**
- * Premium gauge: Jupiter quote vs Kraken fair. Green when within cap,
- * amber when the market quote is over the user's tolerance.
+ * Price gauge: app price vs real-world fair. Black line in every state;
+ * the state reads from the label text and the black "Price spike" pill,
+ * never from a color shift.
  */
 export function PremiumGauge({
   quoteBpsOverFair,
@@ -19,9 +20,10 @@ export function PremiumGauge({
   return (
     <div className={cn("w-full", className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className="font-medium text-sub">Quote vs fair</span>
-        <span className={cn("tabular font-mono", over ? "text-amber" : "text-money-deep")}>
-          +{quoteBpsOverFair} bps{over ? " · over cap" : ` · cap ${maxPremiumBps} bps`}
+        <span className="font-medium text-ink">Quote vs fair</span>
+        <span className="tabular font-mono text-ink">
+          +{(quoteBpsOverFair / 100).toFixed(2)}%
+          {over ? " · over cap" : ` · cap ${(maxPremiumBps / 100).toFixed(2)}%`}
         </span>
       </div>
       <div
@@ -29,15 +31,12 @@ export function PremiumGauge({
         aria-valuenow={Math.round(quoteBpsOverFair)}
         aria-valuemin={0}
         aria-valuemax={maxPremiumBps}
-        aria-label="Quote premium vs cap"
+        aria-label="App price vs fair cap"
         className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--hairline)]"
       >
-        <div
-          className={cn("h-full rounded-full transition-all", over ? "bg-amber" : "bg-money")}
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full rounded-full bg-money transition-all" style={{ width: `${pct}%` }} />
       </div>
-      <p className="mt-1.5 text-xs text-sub">
+      <p className="mt-1.5 text-xs text-ink">
         {over
           ? "Market quote is above your tolerance. Buy deferred to the next window."
           : "Market quote is within your tolerance. Buy will fill."}
