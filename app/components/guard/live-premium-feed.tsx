@@ -4,21 +4,28 @@ import { useEffect, useRef, useState } from "react";
 import { Pill } from "@/components/ui/pill";
 import { PremiumGauge } from "@/components/guard/premium-gauge";
 import { PREMIUM_STATE } from "@/lib/mock";
+import { Card } from "@/components/ui/card";
 import { getPremiumSnapshot, type PremiumSnapshot } from "@/lib/live";
+import { DEMO_MARKET, demoQuoteUsd } from "@/lib/demo";
+import { useMode } from "@/components/mode/mode-context";
 import { formatMoney } from "@/lib/format";
 import { STOCKS, type StockSymbol } from "@/lib/tokens";
+import { cn } from "@/lib/cn";
 
 const POLL_MS = 30_000;
 
 export function LivePremiumFeed({
   symbol,
   amountUsdc,
+  className,
 }: {
   symbol: StockSymbol;
   amountUsdc: number;
+  className?: string;
 }) {
   const [snap, setSnap] = useState<PremiumSnapshot | null>(null);
   const [failed, setFailed] = useState(false);
+  const { mode } = useMode();
   const runId = useRef(0);
 
   useEffect(() => {
@@ -49,23 +56,24 @@ export function LivePremiumFeed({
     };
   }, [symbol, amountUsdc]);
 
+  const demo = DEMO_MARKET[symbol];
   const live = snap ?? {
-    fairUsd: PREMIUM_STATE.fairUsd,
-    quoteUsd: PREMIUM_STATE.quoteUsd,
-    quoteBpsOverFair: PREMIUM_STATE.quoteBpsOverFair,
+    fairUsd: demo.fairUsd,
+    quoteUsd: demoQuoteUsd(symbol),
+    quoteBpsOverFair: demo.bpsOver,
     maxPremiumBps: PREMIUM_STATE.maxPremiumBps,
   };
   const inTolerance = live.quoteBpsOverFair <= live.maxPremiumBps;
 
   return (
-    <>
-      <div className="grid gap-4 p-6 sm:grid-cols-[1fr_auto] sm:items-center">
+    <Card className={cn("p-0", className)}>
+      <div className="grid gap-4 p-6 sm:grid-cols-[1fr_auto] sm:items-start">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
-            Premium guard
+            Price guard
           </p>
           <p className="mt-2 text-sm text-sub">
-            Fair ${formatMoney(live.fairUsd)} · on-chain quote $
+            Fair ${formatMoney(live.fairUsd)} · app price $
             {formatMoney(live.quoteUsd)} ·{" "}
             <span className="font-medium text-ink tabular">
               {live.quoteBpsOverFair > 0 ? "+" : ""}
@@ -80,12 +88,15 @@ export function LivePremiumFeed({
             />
           </div>
         </div>
-        <Pill tone={inTolerance ? "green" : "amber"}>
-          {inTolerance ? "Within tolerance" : "Premium spike"}
+        <Pill
+          tone={inTolerance ? "green" : "money"}
+          className="justify-self-start sm:justify-self-end"
+        >
+          {inTolerance ? "Within tolerance" : "Price spike"}
         </Pill>
       </div>
 
-      <div className="grid gap-4 p-6 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="grid gap-4 border-t border-hair p-6 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
             Fair price feed
@@ -107,11 +118,11 @@ export function LivePremiumFeed({
         </div>
         <span className="flex items-center gap-2 text-sm text-sub">
           <span
-            className={`h-1.5 w-1.5 rounded-full ${snap ? "bg-money" : "bg-amber"}`}
+            className={`h-1.5 w-1.5 rounded-full ${snap && mode === "live" ? "bg-money" : "bg-sub"}`}
           />
           {snap ? (
             <>
-              Live fair price + Jupiter quote · {STOCKS[symbol].symbol}
+              {mode === "demo" ? "Demo feed" : "Live prices"} · {STOCKS[symbol].symbol}
             </>
           ) : failed ? (
             <>Offline · showing demo feed</>
@@ -120,6 +131,6 @@ export function LivePremiumFeed({
           )}
         </span>
       </div>
-    </>
+    </Card>
   );
 }
