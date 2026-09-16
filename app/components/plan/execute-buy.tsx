@@ -60,7 +60,7 @@ export function ExecuteBuy({
       if (snap.quoteBpsOverFair > maxPremiumBps) {
         setPhase({
           name: "error",
-          message: `Guard blocks this buy: quote ${snap.quoteBpsOverFair} bps over fair, cap ${maxPremiumBps} bps.`,
+          message: `Guard blocks this buy: app price ${(snap.quoteBpsOverFair / 100).toFixed(2)}% over fair, cap ${(maxPremiumBps / 100).toFixed(2)}%.`,
         });
         return;
       }
