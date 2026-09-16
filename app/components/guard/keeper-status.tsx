@@ -1,28 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { evaluatePlan, type KeeperVerdict } from "@/lib/keeper";
 import type { StockSymbol } from "@/lib/tokens";
 import { cn } from "@/lib/cn";
 
-// The keeper's heartbeat on the dashboard: re-evaluates the plan on a timer
-// (45s, skipped while the tab is hidden) and reports the live verdict. Starts
-// as "checking" so SSR and hydration render identically.
+// Keeper heartbeat: re-evaluates on a timer (45s, skipped hidden) and
+// reports the live verdict. Starts as "checking" so SSR matches hydration.
 
 const TICK_MS = 45_000;
 
 const tone: Record<KeeperVerdict["state"], string> = {
-  buy: "border-money/30 bg-money/10 text-money-deep",
-  pause: "border-amber/40 bg-amber/10 text-amber",
-  defer: "border-amber/40 bg-amber/10 text-amber",
-  watch: "border-hair bg-paper text-sub",
+  buy: "border-transparent bg-transparent px-1 text-money-deep",
+  pause: "border-transparent bg-transparent px-1 text-amber",
+  defer: "border-transparent bg-transparent px-1 text-amber",
+  watch: "border-transparent bg-transparent px-1 text-sub",
+  stale: "border-transparent bg-transparent px-1 text-sub",
 };
 
 const label: Record<KeeperVerdict["state"], string> = {
   buy: "Keeper · buy eligible",
   pause: "Keeper · paused for flip",
-  defer: "Keeper · deferred on premium",
+  defer: "Keeper · deferred on price",
   watch: "Keeper · watching",
+  stale: "Keeper · paused, feeds stale",
 };
 
 export function KeeperStatus({
@@ -35,6 +36,7 @@ export function KeeperStatus({
   maxPremiumBps: number;
 }) {
   const [verdict, setVerdict] = useState<KeeperVerdict | null>(null);
+  const verdictRef = useRef<KeeperVerdict | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -42,8 +44,17 @@ export function KeeperStatus({
     const check = async () => {
       if (document.hidden) return;
       try {
-        const v = await evaluatePlan(symbol, amountUsdc, maxPremiumBps);
-        if (alive && !ctl.signal.aborted) setVerdict(v);
+        const v = await evaluatePlan(
+          symbol,
+          amountUsdc,
+          maxPremiumBps,
+          new Date(),
+          verdictRef.current?.state ?? null,
+        );
+        if (alive && !ctl.signal.aborted) {
+          verdictRef.current = v;
+          setVerdict(v);
+        }
       } catch {
         if (alive && !ctl.signal.aborted) {
           setVerdict({
@@ -79,7 +90,7 @@ export function KeeperStatus({
       aria-live="polite"
       title={verdict.reason}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-xs tabular",
+        "inline-flex items-center gap-2 px-1 py-1.5 font-mono text-xs tabular",
         tone[verdict.state],
       )}
     >
