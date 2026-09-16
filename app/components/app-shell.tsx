@@ -3,173 +3,212 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Logo } from "@/components/brand/logo";
+import { LogoMark } from "@/components/brand/logo";
 import { ConnectWalletButton } from "@/components/wallet/connect-wallet-button";
+import { ModeToggle } from "@/components/mode/mode-toggle";
+import { NETWORK } from "@/lib/tokens";
 import { cn } from "@/lib/cn";
 
-const links = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/create", label: "New plan" },
+// Chrome concept: a ledger status line, not a navbar.
+// At rest it is a flat full-width line (no border). On scroll it
+// collapses into a centered floating pill capped at max-w-3xl.
+// Mobile splits it: brand + wallet up top, black command strip under thumb.
+
+const commands = [
+  { href: "/", label: "home" },
+  { href: "/dashboard", label: "plans" },
+  { href: "/create", label: "+ new" },
 ];
+
+function isActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  if (href === "/dashboard")
+    return pathname === "/dashboard" || pathname.startsWith("/plan/");
+  return pathname === href;
+}
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
-  function navigate() {
-    setOpen(false);
-  }
+    const onScroll = () => setScrolled(window.scrollY > 16);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-20">
-      <div className="h-1 bg-money" />
-      <div className="border-b border-hair bg-paper/90 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
-          <Link
-            href="/"
-            aria-label="Drip home"
-            className="flex shrink-0 items-center gap-2"
-          >
-            <Logo />
-            <span className="hidden items-center gap-1.5 border-l border-hair pl-3 font-mono text-[11px] uppercase tracking-[0.18em] text-sub lg:inline-flex">
-              DCA · Solana
+    <header className="sticky top-0 z-20 h-12">
+      {/* Desktop: flat line at rest → floating pill on scroll */}
+      <div className="hidden md:block">
+        <div
+          className={cn(
+            "mx-auto flex h-12 items-center gap-5 transition-all duration-300",
+            scrolled
+              ? "mt-2 h-10 w-full max-w-3xl items-center bg-card px-4 shadow-lg"
+              : "h-12 w-full max-w-6xl px-4 sm:px-6",
+          )}
+        >
+          <Link href="/" aria-label="Drip home" className="flex items-center gap-2">
+            <LogoMark className="h-5 w-5" />
+            <span className="font-sans text-[15px] font-semibold tracking-tight text-ink">
+              Drip
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-7 md:flex">
-            {links.map((l) => {
-              const active =
-                pathname === l.href || pathname.startsWith(l.href + "/");
+          <span aria-hidden className="text-hair">
+            /
+          </span>
+          <nav aria-label="Primary" className="flex items-center gap-1">
+            {commands.map((c, i) => {
+              const active = isActive(pathname, c.href);
               return (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  onClick={navigate}
-                  className={cn(
-                    "group relative py-1.5 text-sm transition-colors",
-                    active
-                      ? "font-medium text-ink"
-                      : "text-sub hover:text-ink",
+                <span key={c.href} className="flex items-center gap-1">
+                  {i > 0 && (
+                    <span aria-hidden className="text-hair">
+                      /
+                    </span>
                   )}
-                >
-                  {l.label}
-                  <span
-                    aria-hidden
+                  <Link
+                    href={c.href}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
-                      "absolute -bottom-1.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full transition-opacity",
-                      active ? "bg-money" : "opacity-0 group-hover:opacity-40",
+                      "px-1 py-1 uppercase tracking-[0.14em]",
+                      active ? "font-semibold text-ink" : "text-sub hover:text-ink",
                     )}
-                  />
-                </Link>
+                  >
+                    {active ? `[${c.label}]` : c.label}
+                  </Link>
+                </span>
               );
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
-            <ConnectWalletButton className="hidden lg:inline-flex" />
-            <button
-              type="button"
-              aria-label={open ? "Close menu" : "Open menu"}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-              className="flex h-10 w-10 items-center justify-center rounded-control border border-hair text-ink md:hidden"
-            >
-              <span className="flex flex-col gap-1.5">
-                <span
-                  className={cn(
-                    "block h-0.5 w-5 bg-current transition-transform",
-                    open && "translate-y-2 rotate-45",
-                  )}
-                />
-                <span
-                  className={cn(
-                    "block h-0.5 w-5 bg-current transition-transform",
-                    open && "-translate-y-0.5 -rotate-45",
-                  )}
-                />
-              </span>
-            </button>
+          <div className="ml-auto flex items-center gap-2">
+            <ModeToggle />
+            <ConnectWalletButton />
           </div>
         </div>
-        <div aria-hidden className="ruler-scale h-2 text-money/60" />
       </div>
-      {open && (
-        <div className="animate-collapse-down fixed inset-0 top-16 z-10 border-t border-hair bg-paper md:hidden">
-          <nav className="flex max-h-dvh flex-col overflow-y-auto px-6 pt-2">
-            {links.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={navigate}
-                className="border-b border-hair py-5 font-display text-4xl font-medium tracking-tight text-ink"
-              >
-                {l.label}
-              </Link>
-            ))}
-          </nav>
-          <div className="px-6 py-6">
-            <ConnectWalletButton className="w-full justify-center" />
+
+      {/* Mobile: solid top bar so page content never shows under it */}
+      <div className="bg-paper/95 backdrop-blur-sm md:hidden">
+          <div className="mx-auto flex h-11 w-full items-center justify-between gap-2 px-4">
+            <Link href="/" aria-label="Drip home" className="flex items-center gap-1.5">
+              <LogoMark className="h-5 w-5" />
+              <span className="font-sans text-[15px] font-semibold tracking-tight text-ink">
+                Drip
+              </span>
+            </Link>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <ModeToggle compact />
+              <ConnectWalletButton />
+            </div>
           </div>
+      </div>
+
+      {/* Mobile: one floating command pill under thumb. */}
+      <nav
+        aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-20 pb-[env(safe-area-inset-bottom)] md:hidden"
+      >
+        <div className="mx-auto mb-3 flex w-fit max-w-[94%] items-center gap-1 rounded-full border border-white/10 bg-night px-1.5 py-1 shadow-lg">
+          {commands.map((c) => {
+            const active = isActive(pathname, c.href);
+            const isNew = c.href === "/create";
+            return (
+              <Link
+                key={c.href}
+                href={c.href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-4 py-2 font-mono text-[11px] uppercase tracking-[0.16em] transition-colors",
+                  active
+                    ? "bg-paper text-night"
+                    : isNew
+                      ? "font-semibold text-paper hover:bg-paper/10"
+                      : "text-night-muted hover:text-paper",
+                )}
+              >
+                {c.label}
+              </Link>
+            );
+          })}
         </div>
-      )}
+      </nav>
     </header>
   );
 }
 
 export function SiteFooter() {
+  const links = [
+    { href: "/dashboard", label: "dashboard" },
+    { href: "/create", label: "new plan" },
+    { href: "/#assets", label: "xstocks" },
+    { href: "/#assets", label: "prestocks" },
+    { href: "/#assets", label: "t-tokens" },
+    { href: "/terms", label: "terms" },
+    { href: "/privacy", label: "privacy" },
+  ];
   return (
-    <footer className="relative overflow-hidden bg-night text-night-muted">
-      <div className="absolute inset-x-0 top-0 h-1 bg-money" />
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-14 sm:px-6 md:flex-row md:items-start md:justify-between">
-        <div className="flex flex-col gap-3">
-          <Link href="/" aria-label="Drip home" className="text-paper">
-            <Logo className="[&_span]:text-paper" />
-          </Link>
-          <p className="max-w-xs text-sm leading-relaxed">
-            Recurring DCA into tokenized US equities on Solana, with a guard
-            that knows when not to buy.
+    <>
+      <footer className="mt-4 bg-night text-night-muted">
+        <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">
+          <nav
+            aria-label="Footer"
+            className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-xs"
+          >
+            <Link
+              href="/"
+              aria-label="Drip home"
+              className="flex items-center gap-1.5 text-paper"
+            >
+              <LogoMark />
+              <span className="text-[13px] font-semibold tracking-tight">
+                drip
+              </span>
+            </Link>
+            {links.map((link) => (
+              <span key={link.label} className="flex items-center gap-3">
+                <span aria-hidden className="text-white/20">
+                  /
+                </span>
+                <Link
+                  href={link.href}
+                  className="text-paper/75 transition-colors hover:text-paper"
+                >
+                  {link.label}
+                </Link>
+              </span>
+            ))}
+            <span className="flex items-center gap-3 md:ml-auto">
+              <span aria-hidden className="text-white/20">
+                /
+              </span>
+              <span className="flex items-center gap-1.5 text-paper/75">
+                <span className="h-1.5 w-1.5 rounded-full bg-leaf" />
+                {NETWORK}
+              </span>
+            </span>
+          </nav>
+          <p className="mt-3 text-[11px] leading-relaxed text-night-muted/70">
+            Demo on Solana {NETWORK}. Not investment advice. Availability
+            varies by jurisdiction. Illustrations by{" "}
+            <a
+              href="https://www.magnific.com"
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-white/20 underline-offset-2 transition-colors hover:text-paper"
+            >
+              Magnific
+            </a>
+            .
           </p>
         </div>
-        <div className="flex gap-16 text-sm">
-          <div className="flex flex-col gap-2.5">
-            <p className="font-mono text-xs uppercase tracking-[0.16em] text-night-muted/60">
-              Product
-            </p>
-            <Link href="/dashboard" className="text-paper hover:underline">
-              Dashboard
-            </Link>
-            <Link href="/create" className="text-paper hover:underline">
-              New plan
-            </Link>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <p className="font-mono text-xs uppercase tracking-[0.16em] text-night-muted/60">
-              Network
-            </p>
-            <span className="text-paper">Solana</span>
-            <span className="text-paper">Backed xStocks</span>
-          </div>
-        </div>
-      </div>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -bottom-10 right-4 hidden select-none font-display text-[11rem] leading-none text-white/[0.04] lg:block"
-      >
-        Drip.
-      </span>
-      <div className="border-t border-white/10">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-6 text-xs text-night-muted/70 sm:px-6 md:flex-row md:items-center md:justify-between">
-          <p>Demo on Solana devnet. Not investment advice.</p>
-          <p>Availability varies by jurisdiction.</p>
-        </div>
-      </div>
-    </footer>
+      </footer>
+      {/* Spacer so the mobile command strip never covers footer content */}
+      <div aria-hidden className="h-[72px] md:hidden" />
+    </>
   );
 }
