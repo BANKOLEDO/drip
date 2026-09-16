@@ -29,6 +29,14 @@ export const CATEGORY_LABEL: Record<AssetCategory, string> = {
   tessera: "T-Tokens",
 };
 
+// Default guard caps per market. Public equities track fair value tightly;
+// pre-IPO and community tokens trade thin, so their starting cap is wider.
+export const CATEGORY_DEFAULT_CAP_BPS: Record<AssetCategory, number> = {
+  public: 100,
+  prestocks: 300,
+  tessera: 300,
+};
+
 export const STOCKS: Record<
   StockSymbol,
   {
