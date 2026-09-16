@@ -12,7 +12,7 @@ export type GuardMode = "idle" | "paused" | "premium";
  * The signature status element: lives on the buy button and plan cards.
  * - idle: countdown to the next 00:30 UTC pause window
  * - paused: amber, "Protecting your buy. Dividend cut imminent."
- * - premium: "Premium spike detected. Buy deferred."
+ * - premium: "Price spike detected. Buy deferred."
  */
 export function GuardPill({
   mode = "idle",
@@ -41,7 +41,7 @@ export function GuardPill({
     mode === "paused"
       ? "Protecting your buy. Dividend cut imminent"
       : mode === "premium"
-        ? "Premium spike detected. Buy deferred"
+        ? "Price spike detected. Buy deferred"
         : state?.paused
           ? "Buys paused. Dividend flip in progress"
           : "Guard on";
