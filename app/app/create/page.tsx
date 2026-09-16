@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StockAvatar } from "@/components/stock-avatar";
-import { STOCKS, CATEGORY_LABEL, type StockSymbol } from "@/lib/tokens";
+import { CornerMark } from "@/components/ui/corner-mark";
+import { STOCKS, CATEGORY_LABEL, CATEGORY_DEFAULT_CAP_BPS, type AssetCategory, type StockSymbol } from "@/lib/tokens";
+import { createStoredPlan } from "@/lib/plans";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -16,11 +18,25 @@ const intervals = [
   { value: 7, label: "Weekly" },
   { value: 14, label: "Every 2 weeks" },
 ] as const;
-const premiums = [
-  { bps: 50, label: "0.5%", desc: "Strict" },
-  { bps: 100, label: "1.0%", desc: "Balanced" },
-  { bps: 200, label: "2.0%", desc: "Loose" },
-] as const;
+// Cap presets follow the market: tight for public equities, wider where
+// pre-IPO and community tokens trade thin.
+const capPresets: Record<AssetCategory, readonly { bps: number; label: string; desc: string }[]> = {
+  public: [
+    { bps: 50, label: "0.50%", desc: "Strict" },
+    { bps: 100, label: "1.00%", desc: "Balanced" },
+    { bps: 200, label: "2.00%", desc: "Loose" },
+  ],
+  prestocks: [
+    { bps: 100, label: "1.00%", desc: "Strict" },
+    { bps: 300, label: "3.00%", desc: "Balanced" },
+    { bps: 500, label: "5.00%", desc: "Loose" },
+  ],
+  tessera: [
+    { bps: 100, label: "1.00%", desc: "Strict" },
+    { bps: 300, label: "3.00%", desc: "Balanced" },
+    { bps: 500, label: "5.00%", desc: "Loose" },
+  ],
+};
 
 function intervalLabel(days: 1 | 7 | 14) {
   if (days === 1) return "day";
@@ -37,18 +53,32 @@ export default function CreatePage() {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    router.push("/plan/plan-001");
+    const plan = createStoredPlan({
+      symbol,
+      amountUsdcPerInterval: amount,
+      intervalDays,
+      maxPremiumBps: maxBps,
+    });
+    router.push(`/plan/${plan.id}`);
   }
 
-  const premium = premiums.find((p) => p.bps === maxBps)!.label;
+  const category = STOCKS[symbol].category;
+  const caps = capPresets[category];
+  const premium = caps.find((p) => p.bps === maxBps)?.label ?? `${(maxBps / 100).toFixed(2)}%`;
   const annual = amount * (365 / intervalDays);
+
+  function pickSymbol(s: StockSymbol) {
+    const nextCategory = STOCKS[s].category;
+    setSymbol(s);
+    if (nextCategory !== category) setMaxBps(CATEGORY_DEFAULT_CAP_BPS[nextCategory]);
+  }
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
       <p className="font-mono text-xs uppercase tracking-[0.18em] text-money-deep">
         New plan
       </p>
-      <h1 className="mt-3 font-display text-4xl font-medium tracking-tight text-ink sm:text-5xl">
+      <h1 className="mt-3 text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
         Set a cadence. Drip handles the guard.
       </h1>
       <p className="mt-4 max-w-xl text-pretty text-sub">
@@ -67,11 +97,11 @@ export default function CreatePage() {
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setSymbol(s)}
+                  onClick={() => pickSymbol(s)}
                   className={cn(
                     "flex flex-col items-center gap-2 rounded-card border p-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-info",
                     symbol === s
-                      ? "border-money bg-money/5 text-money-deep"
+                      ? "border-money bg-money text-paper"
                       : "border-hair bg-card text-sub hover:border-sub hover:text-ink",
                   )}
                 >
@@ -80,7 +110,7 @@ export default function CreatePage() {
                   <span
                     className={cn(
                       "font-mono text-[9px] uppercase tracking-[0.14em]",
-                      symbol === s ? "text-money-deep/70" : "text-sub/60",
+                      symbol === s ? "text-paper/70" : "text-sub/60",
                     )}
                   >
                     {CATEGORY_LABEL[STOCKS[s].category]}
@@ -103,7 +133,7 @@ export default function CreatePage() {
                   className={cn(
                     "rounded-control border px-4 py-2 font-mono text-sm transition-colors",
                     amount === p
-                      ? "border-money bg-money/5 font-semibold text-money-deep"
+                      ? "border-money bg-money font-semibold text-paper"
                       : "border-hair bg-card text-sub hover:border-sub hover:text-ink",
                   )}
                 >
@@ -141,7 +171,7 @@ export default function CreatePage() {
                   className={cn(
                     "rounded-control border px-4 py-2 text-sm font-medium transition-colors",
                     intervalDays === iv.value
-                      ? "border-money bg-money/5 font-semibold text-money-deep"
+                      ? "border-money bg-money font-semibold text-paper"
                       : "border-hair bg-card text-sub hover:border-sub hover:text-ink",
                   )}
                 >
@@ -156,7 +186,7 @@ export default function CreatePage() {
               Premium guard tolerance
             </legend>
             <div className="mt-4 grid grid-cols-3 gap-3">
-              {premiums.map((pm) => (
+              {caps.map((pm) => (
                 <button
                   key={pm.bps}
                   type="button"
@@ -164,19 +194,26 @@ export default function CreatePage() {
                   className={cn(
                     "rounded-card border p-4 text-left transition-colors",
                     maxBps === pm.bps
-                      ? "border-money bg-money/5"
+                      ? "border-money bg-money"
                       : "border-hair bg-card hover:border-sub",
                   )}
                 >
                   <span
                     className={cn(
                       "font-mono text-lg font-semibold tabular",
-                      maxBps === pm.bps ? "text-money-deep" : "text-ink",
+                      maxBps === pm.bps ? "text-paper" : "text-ink",
                     )}
                   >
                     {pm.label}
                   </span>
-                  <span className="ml-2 text-xs text-sub">{pm.desc}</span>
+                  <span
+                    className={cn(
+                      "ml-2 text-xs",
+                      maxBps === pm.bps ? "text-paper/70" : "text-sub",
+                    )}
+                  >
+                    {pm.desc}
+                  </span>
                 </button>
               ))}
             </div>
@@ -187,8 +224,12 @@ export default function CreatePage() {
           </fieldset>
         </div>
 
-        <Card className="lg:sticky lg:top-24">
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
+        <Card className="relative lg:sticky lg:top-24">
+          <CornerMark className="-top-[6px] -left-[6px]" />
+          <CornerMark className="-top-[6px] -right-[6px]" />
+          <CornerMark className="-bottom-[6px] -left-[6px]" />
+          <CornerMark className="-bottom-[6px] -right-[6px]" />
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-money-deep">
             Plan preview
           </p>
           <div className="mt-4 flex items-center gap-3">
