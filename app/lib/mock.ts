@@ -38,7 +38,7 @@ export const mockPlans: Plan[] = [
     symbol: "AAPLx",
     amountUsdcPerInterval: 50,
     intervalDays: 7,
-    maxPremiumBps: 1,
+    maxPremiumBps: 100,
     status: "active",
     nextBuyUtc: new Date(Date.now() + 1000 * 60 * 60 * 26).toISOString(),
     createdAt: "2026-08-01T10:00:00.000Z",
