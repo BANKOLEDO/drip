@@ -29,8 +29,7 @@ export default async function PlanDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // Seeded plans only exist in demo mode. Live mode has no mock plans,
-  // so any id is unknown until on-chain reads land.
+  // Seeds exist in demo only. Live resolves browser-stored plans.
   const jar = await cookies();
   const pageMode = jar.get(MODE_COOKIE)?.value === "live" ? "live" : DEFAULT_MODE;
   const plan = pageMode === "demo" ? mockPlans.find((p) => p.id === id) : undefined;

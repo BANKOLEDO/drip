@@ -1,7 +1,6 @@
-// Server-side Pyth proxy: keeps PYTH_API_KEY out of the browser bundle.
+// Pyth proxy: keeps PYTH_API_KEY server-side.
 //
-// GET /api/pyth?symbol=AAPLx -> { symbol, price, confBps, publishTime, ageSec }
-// Any failure -> 502/503 so the client falls back to Kraken/Yahoo.
+// GET /api/pyth?symbol=AAPLx. Failures fall back to Kraken/Yahoo.
 
 import { NextResponse } from "next/server";
 import { PYTH_FEED_IDS } from "@/lib/pyth";

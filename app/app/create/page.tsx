@@ -18,8 +18,8 @@ const intervals = [
   { value: 7, label: "Weekly" },
   { value: 14, label: "Every 2 weeks" },
 ] as const;
-// Cap presets follow the market: tight for public equities, wider where
-// pre-IPO and community tokens trade thin.
+// Caps follow the market: tight for public, wider for thin pre-IPO and
+// community tokens.
 const capPresets: Record<AssetCategory, readonly { bps: number; label: string; desc: string }[]> = {
   public: [
     { bps: 50, label: "0.50%", desc: "Strict" },

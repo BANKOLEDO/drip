@@ -1,14 +1,11 @@
-// Same-origin market proxy: PreStocks and Tessera public APIs have no CORS
-// headers, so the browser can't fetch them directly. This server route
-// proxies the keyless public endpoints, caches responses briefly to
-// protect demo stability, and returns a consistent shape. Pyth public
-// feeds stay in /api/pyth because they require an API key (secret stays
-// server-side, but this route deliberately stays keyless).
+// Same-origin proxy: PreStocks and Tessera lack CORS headers. Keyless
+// public endpoints, brief cache, consistent shape. Pyth stays separate
+// (needs the server-side API key).
 
 import { NextResponse } from "next/server";
 import { STOCKS, type StockSymbol, type AssetCategory } from "@/lib/tokens";
 
-// Simple in-memory cache; good enough for the 2-day demo.
+// Short in-memory cache for demo stability.
 const cache = new Map<string, { at: number; body: unknown }>();
 const CACHE_MS = 30_000;
 
@@ -22,7 +19,7 @@ interface MarketQuote {
   ageSec: number;
 }
 
-// Provider JSON shapes (public endpoints, no API keys).
+// Provider JSON shapes, keyless public endpoints.
 interface PreStocksEntry {
   symbol: string;
   tokenPrice?: number;
@@ -56,7 +53,7 @@ async function fetchJson(url: string): Promise<unknown | null> {
   }
 }
 
-// Map StockSymbol → provider-expected lookup key.
+// StockSymbol to provider lookup key.
 const PRESTOCKS_KEY: Record<string, string> = {
   SPACEx: "SPACEX",
   OPENAIx: "OPENAI",

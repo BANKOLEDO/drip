@@ -37,8 +37,8 @@ export default async function DashboardPage({
   searchParams: Promise<{ activityPage?: string }>;
 }) {
   const sp = await searchParams;
-  // Seeded portfolio data only exists in demo mode. Live mode shows the
-  // honest empty state until on-chain plan reads land.
+  // Seeds exist in demo only. Live shows the empty state until on-chain
+  // plan reads land.
   const jar = await cookies();
   const pageMode = jar.get(MODE_COOKIE)?.value === "live" ? "live" : DEFAULT_MODE;
   const plans = pageMode === "demo" ? mockPlans : [];
