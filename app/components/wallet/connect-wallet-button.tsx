@@ -88,10 +88,9 @@ export function ConnectWalletButton({ className }: { className?: string }) {
     else window.setTimeout(() => setOpen(true), 1200);
   }, [connected, connecting, disconnecting, mmReady]);
 
-  // External disconnects (user logs out inside the wallet app, not here)
-  // don't always emit adapter events, so resync on focus/visibility plus
-  // explicit account/disconnect listeners. Without this the old address
-  // stays on screen until a manual refresh.
+  // Some wallets never emit events on external logout, so resync on
+  // focus/visibility plus the disconnect event. Otherwise the old address
+  // stays on screen until refresh.
   useEffect(() => {
     const adapter = wallet?.adapter;
     if (!adapter) return;

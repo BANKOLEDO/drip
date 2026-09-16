@@ -7,10 +7,8 @@ import { formatMoney } from "@/lib/format";
 import { StockAvatar } from "@/components/stock-avatar";
 import type { StockSymbol } from "@/lib/tokens";
 
-// Live market tape: real fair prices across all three asset classes
-// (public xStocks, PreStocks, T-Tokens). Seamless marquee on every
-// screen width, no internal scrolling. Polls every 45s and keeps the
-// last good value on screen while the next one loads.
+// Live price tape across all three asset classes. Seamless marquee, no
+// internal scrolling. Polls every 45s, keeps last good values on screen.
 
 const WATCH: { symbol: StockSymbol; label: string }[] = [
   { symbol: "AAPLx", label: "Public" },

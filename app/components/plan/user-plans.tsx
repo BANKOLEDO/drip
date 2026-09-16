@@ -12,9 +12,8 @@ import { STOCKS } from "@/lib/tokens";
 import { formatMoney } from "@/lib/format";
 import type { Plan } from "@/lib/mock";
 
-// Plans list: seeded showcase plans (demo mode only, passed in) merged
-// with the user's own browser-stored plans (both modes). Stored plans are
-// what make live mode real: created on /create with random UUIDs.
+// Plans list: demo seeds (passed in) merged with browser-stored plans.
+// Stored plans are what make live mode real.
 export function UserPlans({ seed }: { seed: Plan[] }) {
   const stored = useSyncExternalStore(subscribePlans, getPlansSnapshot, getPlansServerSnapshot);
 

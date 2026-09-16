@@ -27,7 +27,7 @@ export function ModeProvider({
   children: ReactNode;
 }) {
   const router = useRouter();
-  // Starts from the server-read cookie, so first render matches hydration.
+  // Starts from the server cookie: first render matches hydration.
   const [mode, setModeState] = useState<DataMode>(initialMode);
   const setMode = useCallback(
     (m: DataMode) => {

@@ -19,8 +19,8 @@ export function useMetaMaskReady() {
   return useContext(MetaMaskReadyContext);
 }
 
-// Wallet Standard discovers injected wallets (Phantom, Solflare, Backpack…)
-// plus MetaMask once @metamask/connect-solana registers it with the registry.
+// Wallet Standard discovery (Phantom, Solflare, Backpack) plus MetaMask
+// via @metamask/connect-solana.
 export function WalletProviders({ children }: { children: ReactNode }) {
   const network =
     process.env.NEXT_PUBLIC_NETWORK === "mainnet"
@@ -30,8 +30,7 @@ export function WalletProviders({ children }: { children: ReactNode }) {
   const [mmReady, setMmReady] = useState(false);
 
   useEffect(() => {
-    // Register MetaMask (if installed) with the Wallet Standard registry so it
-    // shows up in the connect list. Resolves regardless of installer state.
+    // Register MetaMask for the Wallet Standard registry, if installed.
     void createSolanaClient({
       dapp: { name: "Drip", url: window.location.origin },
     })

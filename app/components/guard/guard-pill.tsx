@@ -9,10 +9,8 @@ import { PAUSE_WINDOW_MINUTES } from "@/lib/tokens";
 export type GuardMode = "idle" | "paused" | "premium";
 
 /**
- * The signature status element: lives on the buy button and plan cards.
- * - idle: countdown to the next 00:30 UTC pause window
- * - paused: amber, "Protecting your buy. Dividend cut imminent."
- * - premium: "Price spike detected. Buy deferred."
+ * Signature status: idle counts to the next pause window, paused and
+ * premium states explain the block.
  */
 export function GuardPill({
   mode = "idle",

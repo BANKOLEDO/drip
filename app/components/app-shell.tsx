@@ -9,10 +9,8 @@ import { ModeToggle } from "@/components/mode/mode-toggle";
 import { NETWORK } from "@/lib/tokens";
 import { cn } from "@/lib/cn";
 
-// Chrome concept: a ledger status line, not a navbar.
-// At rest it is a flat full-width line (no border). On scroll it
-// collapses into a centered floating pill capped at max-w-3xl.
-// Mobile splits it: brand + wallet up top, black command strip under thumb.
+// Chrome: a ledger status line, not a navbar. Flat at rest, floating pill
+// on scroll. Mobile: brand + wallet up top, command pill under thumb.
 
 const commands = [
   { href: "/", label: "home" },

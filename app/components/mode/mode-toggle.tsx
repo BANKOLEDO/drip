@@ -4,11 +4,8 @@ import { useMode } from "@/components/mode/mode-context";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { cn } from "@/lib/cn";
 
-// Segmented Demo/Live switch. Lives in the header (full on desktop,
-// compact on mobile) so a judge can flip between the bulletproof scripted
-// market and real feeds at any moment. Switching to demo drops the wallet:
-// scripted data needs no keys, and a connected address next to demo figures
-// would imply real money is moving.
+// Demo/Live switch in the header. Flipping to demo drops the wallet:
+// scripted figures next to a connected address would imply real money.
 export function ModeToggle({ compact = false }: { compact?: boolean }) {
   const { mode, setMode } = useMode();
   const { connected, disconnect } = useWallet();

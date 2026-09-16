@@ -2,8 +2,7 @@
 
 import { useMode } from "@/components/mode/mode-context";
 
-// Small "Demo data" marker for pages showing numbers. Renders nothing in
-// live mode, so live figures are never mistaken for the scripted set.
+// "Demo data" marker for pages showing numbers. Hidden in live mode.
 export function DemoBadge() {
   const { mode } = useMode();
   if (mode !== "demo") return null;

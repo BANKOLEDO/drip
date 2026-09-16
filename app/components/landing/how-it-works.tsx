@@ -26,8 +26,8 @@ const STEPS = [
   },
 ] as const;
 
-// How-it-works as a bottom-nav-style command pill: three segments in a
-// black bar, the active one lit paper, description swapping underneath.
+// How-it-works as a bottom-nav-style pill: black bar, active segment lit,
+// description swaps underneath.
 export function HowItWorks() {
   const [active, setActive] = useState<(typeof STEPS)[number]["id"]>("connect");
   const step = STEPS.find((s) => s.id === active)!;

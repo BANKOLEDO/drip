@@ -19,10 +19,8 @@ import { MULTIPLIER_AAPL } from "@/lib/mock";
 import { STOCKS, type StockSymbol } from "@/lib/tokens";
 import { cn } from "@/lib/cn";
 
-// User-signed fill on the plan page. Flow: review (live guard check) → sign
-// in wallet → execute through Jupiter → explorer link. The guard blocks the
-// review step when premium is over cap, so the program's rule holds at the UI
-// edge too.
+// User-signed fill: review (guard check) → sign in wallet → execute.
+// The guard blocks over-cap buys here too, so the on-chain rule holds.
 
 type Phase =
   | { name: "idle" }

@@ -5,8 +5,8 @@ import { evaluatePlan, type KeeperVerdict } from "@/lib/keeper";
 import type { StockSymbol } from "@/lib/tokens";
 import { cn } from "@/lib/cn";
 
-// Keeper heartbeat: re-evaluates on a timer (45s, skipped hidden) and
-// reports the live verdict. Starts as "checking" so SSR matches hydration.
+// Keeper heartbeat: re-evaluates every 45s (skipped when hidden).
+// Starts "checking" so SSR matches hydration.
 
 const TICK_MS = 45_000;
 

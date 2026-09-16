@@ -4,13 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
 
-// Site-wide scroll-appear: an element rises in every time it enters the
-// viewport, scrolling down or back up. IntersectionObserver stays attached
-// and toggles visibility, so leaving and re-entering replays the motion.
-// Pass once for wrappers around live, polling content (price feeds): replay
-// restarts mid-tick and glitches, so those reveal on first entry and stay.
-// Reduced-motion viewers get content immediately. A noscript style keeps the
-// content visible for crawlers and no-JS users.
+// Scroll-appear: elements rise on every viewport entry, both directions.
+// Pass once for live polling content, where replay glitches mid-tick.
+// Reduced motion and no-JS get content immediately.
 
 type RevealProps = {
   children: React.ReactNode;

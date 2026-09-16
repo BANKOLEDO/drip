@@ -1,10 +1,6 @@
 import { cn } from "@/lib/cn";
 
-/**
- * Price gauge: app price vs real-world fair. Black line in every state;
- * the state reads from the label text and the black "Price spike" pill,
- * never from a color shift.
- */
+// Price gauge: app price vs fair. Always black; state reads from text.
 export function PremiumGauge({
   quoteBpsOverFair,
   maxPremiumBps,

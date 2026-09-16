@@ -14,9 +14,8 @@ import { getStoredPlan, getPlansSnapshot, getPlansServerSnapshot, subscribePlans
 import { STOCKS } from "@/lib/tokens";
 import { formatMoney } from "@/lib/format";
 
-// Detail view for browser-stored plans (created on /create with random
-// UUIDs, both modes). Mock showcase plans keep the richer server view;
-// user plans get the live guard, live feed, and a working buy button.
+// Detail view for browser-stored plans (random UUIDs, both modes). Mock
+// showcase plans keep the server view; user plans get live guard and buy.
 export function StoredPlanView({ id }: { id: string }) {
   useSyncExternalStore(subscribePlans, getPlansSnapshot, getPlansServerSnapshot);
   const plan = getStoredPlan(id);

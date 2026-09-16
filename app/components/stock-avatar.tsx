@@ -15,8 +15,8 @@ export function StockAvatar({
 }) {
   const stock = STOCKS[symbol];
   const [broken, setBroken] = useState(false);
-  // Tessera publishes no logo URLs, so T-Tokens always land here:
-  // show the company initial (O/K/S), not the "T-" prefix.
+  // Tessera publishes no logos, so T-Tokens show the company initial
+  // (O/K/S), not the "T-" prefix.
   const initial = stock.name.replace(/^T-/, "").charAt(0);
 
   if (broken) {
