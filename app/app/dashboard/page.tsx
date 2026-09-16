@@ -2,12 +2,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
-import { Pill } from "@/components/ui/pill";
 import { StockAvatar } from "@/components/stock-avatar";
 import { GuardPill } from "@/components/guard/guard-pill";
 import { KeeperStatus } from "@/components/guard/keeper-status";
+import { UserPlans } from "@/components/plan/user-plans";
+import { DemoBadge } from "@/components/mode/demo-badge";
 import { LivePremiumFeed } from "@/components/guard/live-premium-feed";
+import { CornerMark } from "@/components/ui/corner-mark";
+import { Reveal } from "@/components/motion/reveal";
 import { STOCKS } from "@/lib/tokens";
+import { MODE_COOKIE, DEFAULT_MODE } from "@/lib/mode-keys";
+import { cookies } from "next/headers";
 import {
   mockPortfolio,
   mockPlans,
@@ -24,8 +29,34 @@ function timeAgo(iso: string) {
   return `${Math.round(h / 24)}d ago`;
 }
 
-export default function DashboardPage() {
-  const hasPlans = mockPlans.length > 0;
+const ACTIVITY_PAGE_SIZE = 5;
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ activityPage?: string }>;
+}) {
+  const sp = await searchParams;
+  // Seeded portfolio data only exists in demo mode. Live mode shows the
+  // honest empty state until on-chain plan reads land.
+  const jar = await cookies();
+  const pageMode = jar.get(MODE_COOKIE)?.value === "live" ? "live" : DEFAULT_MODE;
+  const plans = pageMode === "demo" ? mockPlans : [];
+  const portfolio = pageMode === "demo" ? mockPortfolio : [];
+  const activity = pageMode === "demo" ? mockActivity : [];
+  const totalActivityPages = Math.max(
+    1,
+    Math.ceil(activity.length / ACTIVITY_PAGE_SIZE),
+  );
+  const activityPage = Math.min(
+    Math.max(1, Number(sp.activityPage ?? 1) || 1),
+    totalActivityPages,
+  );
+  const activityEvents = activity.slice(
+    (activityPage - 1) * ACTIVITY_PAGE_SIZE,
+    activityPage * ACTIVITY_PAGE_SIZE,
+  );
+  const hasPlans = plans.length > 0;
 
   if (!hasPlans) {
     return (
@@ -54,19 +85,19 @@ export default function DashboardPage() {
     );
   }
 
-  const position = mockPortfolio[0];
+  const position = portfolio[0];
   const value = position.scaledShares * position.priceUsd;
-  const plan = mockPlans[0];
+  const plan = plans[0];
   const nextBuy = new Date(plan.nextBuyUtc);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
-            Portfolio value
+          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-money-deep">
+            Portfolio value <DemoBadge />
           </p>
-          <h1 className="mt-2 font-display text-5xl font-medium tracking-tight text-ink tabular sm:text-6xl">
+          <h1 className="mt-2 text-5xl font-semibold tracking-tight text-ink tabular sm:text-6xl">
             ${formatMoney(value)}
           </h1>
           <p className="mt-3 text-sm text-sub">
@@ -78,8 +109,13 @@ export default function DashboardPage() {
       </div>
 
       {/* Status ledger */}
-      <Card className="divide-y divide-hair p-0">
-        <div className="grid gap-4 p-6 sm:grid-cols-[1fr_auto] sm:items-center">
+      <Reveal>
+        <Card className="relative p-0">
+          <CornerMark className="-top-[6px] -left-[6px]" />
+          <CornerMark className="-top-[6px] -right-[6px]" />
+          <CornerMark className="-bottom-[6px] -left-[6px]" />
+          <CornerMark className="-bottom-[6px] -right-[6px]" />
+          <div className="grid gap-4 p-6 sm:grid-cols-[1fr_auto] sm:items-center">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
               Next buy
@@ -107,73 +143,80 @@ export default function DashboardPage() {
             maxPremiumBps={plan.maxPremiumBps}
           />
         </div>
+      </Card>
+      </Reveal>
 
+      <Reveal once>
         <LivePremiumFeed
+          className="mt-4"
           symbol={plan.symbol}
           amountUsdc={plan.amountUsdcPerInterval}
         />
-      </Card>
+      </Reveal>
 
-      {/* Plans */}
-      <h2 className="mt-12 mb-4 font-display text-2xl font-medium tracking-tight text-ink">
-        Plans
-      </h2>
-      <Card className="p-0">
-        <ul className="divide-y divide-hair">
-          {mockPlans.map((p) => (
-            <li key={p.id}>
-              <Link
-                href={`/plan/${p.id}`}
-                className="flex items-center gap-4 p-5 transition-colors hover:bg-paper"
-              >
-                <StockAvatar symbol={p.symbol} size={40} />
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-ink">
-                    {STOCKS[p.symbol].name}{" "}
-                    <span className="font-normal text-sub">
-                      {p.symbol}
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-sm text-sub tabular">
-                    ${formatMoney(p.amountUsdcPerInterval)} every{" "}
-                    {p.intervalDays === 1
-                      ? "day"
-                      : p.intervalDays === 7
-                        ? "week"
-                        : "2 weeks"}{" "}
-                    · cap {(p.maxPremiumBps / 100).toFixed(2)}%
-                  </p>
-                </div>
-                <Pill tone="green">Active</Pill>
-                <span className="hidden text-sub sm:inline" aria-hidden="true">
-                  →
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </Card>
+      {/* Plans: seeded showcase plus the user's own stored plans */}
+      <UserPlans seed={plans} />
 
       {/* Activity */}
-      <h2 className="mt-12 mb-4 font-display text-2xl font-medium tracking-tight text-ink">
-        Recent activity
-      </h2>
-      <Card className="p-0">
-        <ul className="divide-y divide-hair">
-          {mockActivity.map((a) => (
-            <li key={a.id} className="flex items-start gap-4 p-5">
-              <StockAvatar symbol={a.symbol} size={32} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-ink">{a.description}</p>
-                <p className="mt-0.5 font-mono text-xs text-sub">{a.detail}</p>
-              </div>
-              <span className="shrink-0 text-xs text-sub">
-                {timeAgo(a.atUtc)}
+      <div className="mt-12 mb-4 flex items-baseline justify-between gap-4">
+        <h2 className="text-xl font-semibold tracking-tight text-ink">
+          Recent activity
+        </h2>
+        <span className="font-mono text-xs text-sub tabular">
+          {activity.length} events
+        </span>
+      </div>
+      <Reveal>
+        <Card className="relative p-0">
+          <CornerMark className="-top-[6px] -left-[6px]" />
+          <CornerMark className="-top-[6px] -right-[6px]" />
+          <CornerMark className="-bottom-[6px] -left-[6px]" />
+          <CornerMark className="-bottom-[6px] -right-[6px]" />
+          <ul className="divide-y divide-hair">
+            {activityEvents.map((a) => (
+              <li key={a.id} className="flex items-start gap-4 p-5">
+                <StockAvatar symbol={a.symbol} size={32} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink">{a.description}</p>
+                  <p className="mt-0.5 font-mono text-xs text-sub">{a.detail}</p>
+                </div>
+                <span className="shrink-0 text-xs text-sub">
+                  {timeAgo(a.atUtc)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex items-center justify-between gap-4 border-t border-hair px-5 py-3">
+            {activityPage > 1 ? (
+              <Link
+                href={`/dashboard?activityPage=${activityPage - 1}`}
+                className="font-mono text-xs text-sub transition-colors hover:text-ink"
+              >
+                ← Newer
+              </Link>
+            ) : (
+              <span aria-hidden className="font-mono text-xs text-sub/40">
+                ← Newer
               </span>
-            </li>
-          ))}
-        </ul>
+            )}
+            <span className="font-mono text-xs text-sub tabular">
+              Page {activityPage} of {totalActivityPages}
+            </span>
+            {activityPage < totalActivityPages ? (
+              <Link
+                href={`/dashboard?activityPage=${activityPage + 1}`}
+                className="font-mono text-xs text-sub transition-colors hover:text-ink"
+              >
+                Older →
+              </Link>
+            ) : (
+              <span aria-hidden className="font-mono text-xs text-sub/40">
+                Older →
+              </span>
+            )}
+          </div>
       </Card>
+      </Reveal>
     </main>
   );
 }
