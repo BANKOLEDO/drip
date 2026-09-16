@@ -1,9 +1,8 @@
-// On-chain Drip program plumbing (hand-rolled, no anchor client needed).
-// The program is accounting + guard only: intent PDA, pause flag, scaled
-// receipts. Builds the record_fill instruction with manual borsh encoding
-// that mirrors programs/drip/src/lib.rs byte-for-byte.
+// On-chain Drip program plumbing (hand-rolled, no anchor client).
+// Accounting + guard only: intent PDA, pause flag, scaled receipts.
+// record_fill args mirror programs/drip/src/lib.rs byte-for-byte.
 //
-// Account layout (DcaIntent, 118 bytes):
+// DcaIntent, 118 bytes:
 //   8 discriminator | 32 owner | 32 mint | 8 amount_usdc | 2 interval_days |
 //   2 max_premium_bps | 1 paused | 1 bump | 8 fills | 8 total_raw |
 //   8 total_scaled | 8 created_at

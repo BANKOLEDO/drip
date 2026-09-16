@@ -1,22 +1,11 @@
-// Pyth fair-price source for the premium guard.
-//
-// Pyth Core (upgraded Aug 2026) is the PRIMARY fair-price feed: every DCA
-// leg compares its Jupiter quote against a first-party Pyth equity price,
-// so live Pyth market data does real work in the guard decision. Kraken and
-// Yahoo remain as fallbacks when Pyth is unreachable.
-//
-// Reads go through the same-repo /api/pyth route (server-side) so the
-// PYTH_API_KEY never ships in the browser bundle. Feed IDs are Pyth Core
-// stable IDs (same interface + IDs post-upgrade).
+// Pyth fair-price source. Reads go through /api/pyth so the key stays
+// server-side. Null when down, so callers fall back to Kraken/Yahoo.
 
 import type { StockSymbol } from "./tokens";
 
-// Pyth Core stable feed IDs for Equity.US.<BASE>/USD, sourced from the
-// public Pyth Insights explorer pages (one ID embedded per asset page).
-// Covers only public xStocks (Pyth doesn't list private-market tokens).
-// Treat as unverified until the first successful Hermes fetch returns a
-// sane price; the /api/pyth route rejects non-positive prices, and the
-// keeper falls back to Kraken/Yahoo whenever Pyth is unusable.
+// Pyth Core stable feed IDs for Equity.US.<BASE>/USD, scraped from Pyth
+// Insights. Public xStocks only. Unverified until a Hermes fetch returns
+// a sane price; the route rejects bad prices, the keeper falls back.
 export const PYTH_FEED_IDS: Partial<Record<StockSymbol, string>> = {
   AAPLx: "49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688",
   NVDAx:
@@ -45,10 +34,9 @@ export interface PythQuote {
   ageSec: number;
 }
 
-// Max age for a Pyth price to drive the guard: equities print on exchange
-// hours, so anything older than 15 min is stale and must not gate a buy.
+// Prices older than 15 min never gate a buy. Confidence wider than 1%
+// means the quote is unusable.
 export const PYTH_MAX_AGE_SEC = 15 * 60;
-// Reject absurd confidence (wider than 1%) — the quote is unusable.
 export const PYTH_MAX_CONF_BPS = 100;
 
 export function pythPriceIsFresh(q: PythQuote, nowSec = Date.now() / 1000): boolean {
@@ -62,8 +50,7 @@ export function pythPriceIsFresh(q: PythQuote, nowSec = Date.now() / 1000): bool
   );
 }
 
-// Client entry point: same-origin API route, never the Hermes URL (the key
-// stays server-side). Returns null when Pyth is down so callers fall back.
+// Same-origin route, never the Hermes URL. Null when Pyth is down.
 export async function pythFairPrice(
   symbol: StockSymbol,
 ): Promise<{ price: number; ageSec: number } | null> {

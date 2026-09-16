@@ -29,8 +29,8 @@ export const CATEGORY_LABEL: Record<AssetCategory, string> = {
   tessera: "T-Tokens",
 };
 
-// Default guard caps per market. Public equities track fair value tightly;
-// pre-IPO and community tokens trade thin, so their starting cap is wider.
+// Starting guard caps per market. Public tracks fair tightly; pre-IPO and
+// community tokens trade thin, so they start wider.
 export const CATEGORY_DEFAULT_CAP_BPS: Record<AssetCategory, number> = {
   public: 100,
   prestocks: 300,
@@ -42,16 +42,12 @@ export const STOCKS: Record<
   {
     name: string;
     symbol: StockSymbol;
-    // Verified mainnet mints:
-    //  - xStocks via api.backed.fi/api/v2/public/assets
-    //  - PreStocks via prestocks.com/api/prestocks (contract_address)
-    //  - T-Tokens via rest-api.tessera.pe/v1/public/token-details (mint)
+    // Verified mainnet mints and decimals (xStocks 8, PreStocks/T-Tokens
+    // 9, USDC 6). Quotes arrive in base units; the guard converts per
+    // asset, never with a hardcoded constant.
     mint: string;
     logo: string;
     category: AssetCategory;
-    // On-chain decimals (verified): xStocks 8, PreStocks & T-Tokens 9,
-    // USDC 6. Jupiter quotes come back in base units, so the fair-price
-    // guard converts using per-asset decimals, never a hardcoded constant.
     decimals: number;
   }
 > = {

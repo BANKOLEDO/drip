@@ -2,10 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 
-// Server-safe: returns false before hydration so SSR/static output matches the
-// first client render, then re-renders once if the OS prefers reduced motion.
-// Same bucketing discipline as use-countdown: the snapshot only changes when
-// the preference actually flips.
+// False before hydration (matches SSR), then tracks the OS setting.
 
 const query = () => "(prefers-reduced-motion: reduce)";
 

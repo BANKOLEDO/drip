@@ -1,6 +1,5 @@
-// Jupiter Swap V2 user-signed buys: the program never swaps and never holds
-// custody, so each fill is a user-signed Jupiter order. Quote-only order calls
-// work keyless; production adds a free portal key. Client-safe with timeouts.
+// Jupiter Swap V2 user-signed buys. The program never swaps or holds
+// custody. Quote-only calls work keyless; production adds a free key.
 
 import { STOCKS, USDC_MINT, type StockSymbol } from "./tokens";
 
@@ -27,7 +26,7 @@ async function postJson(url: string, body: unknown): Promise<unknown> {
   return await res.json();
 }
 
-// Build an unsigned buy order: spend amountUsdc of USDC for the xStock.
+// Build an unsigned buy order: USDC in, xStock out.
 export async function buildBuyOrder(
   symbol: StockSymbol,
   amountUsdc: number,

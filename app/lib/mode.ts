@@ -1,10 +1,8 @@
 "use client";
 
-// Demo vs Live data mode. Demo (default) serves the curated dataset in
-// lib/demo.ts instantly with zero network, so judging never hits a spinner
-// or a dead feed. Live hits the real proxies and falls back labeled.
-// Persisted per browser; module flag lets plain lib functions read it
-// without threading React context through every call.
+// Demo vs Live data mode. Demo serves curated instant numbers; live hits
+// real feeds with labeled fallback. Module flag so plain functions can
+// read it without React context.
 
 import { MODE_COOKIE, DEFAULT_MODE, type DataMode } from "./mode-keys";
 

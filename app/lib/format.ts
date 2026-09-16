@@ -5,7 +5,7 @@ export function formatMoney(value: number, digits = 2) {
   }).format(value);
 }
 
-// Shares / amounts: tubeoff digits to 7 decimals (scaled-ui precision)
+// Shares/amounts: cut to 7 decimals (scaled-ui precision).
 export function formatShares(value: number, digits = 7) {
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: digits,
@@ -49,13 +49,8 @@ export type GuardState = {
 };
 
 /**
- * Compute guard state vs a given "now". The pause window is the
- * 30-minute band centered on the next 00:30 UTC multiplier flip that has
- * not fully passed (we always keep computing forward so the demo never
- * looks stale).
- *
- * A flip that already happened is "consumed"; the next candidate is the
- * upcoming 00:30 UTC. -- if we are within the window we are paused.
+ * Guard state vs "now": the 30-minute band around the next 00:30 UTC flip.
+ * Past flips are consumed; the next candidate is always upcoming.
  */
 export function guardStateAt(now: Date): GuardState {
   const y = now.getUTCFullYear();
@@ -71,9 +66,8 @@ export function guardStateAt(now: Date): GuardState {
   const winSecs = 15 * 60 * 1000; // 15 min either side
   let start = new Date(flip.getTime() - winSecs);
   let end = new Date(flip.getTime() + winSecs);
-  // A flip is consumed only once its full pause window (00:30 ± 15m)
-  // has passed — otherwise the second half of the band mid-flip would
-  // incorrectly roll to the next day.
+  // A flip counts as done only after its full window passes.
+  // Otherwise the second half of the band would roll to the next day.
   if (now >= end) {
     flip = flipAt(y, m, d + 1);
     start = new Date(flip.getTime() - winSecs);
@@ -95,7 +89,7 @@ export function guardStateAt(now: Date): GuardState {
   };
 }
 
-// Format a clock { h, m, s } like 14:59:59 without leading weirdness
+// Format a clock { h, m, s } like 14:59:59, zero-padded.
 export function formatCountdown(totalMs: number) {
   const totalSec = Math.max(0, Math.floor(totalMs / 1000));
   const h = Math.floor(totalSec / 3600);

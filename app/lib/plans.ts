@@ -1,9 +1,8 @@
 "use client";
 
-// User-created plans live in the browser (localStorage), in both modes.
-// Ids are random UUIDs, never guessable sequence numbers. Demo mode seeds
-// the showcase plan separately (see lib/mock.ts); stored plans merge with
-// the seed on the dashboard and resolve on the plan page.
+// Browser-stored user plans (both modes). Random UUID ids, never
+// guessable. Demo seeds its showcase plan separately; stored plans merge
+// with the seed on the dashboard and resolve on the plan page.
 
 import type { Plan } from "./mock";
 import type { StockSymbol } from "./tokens";
@@ -43,8 +42,7 @@ export function subscribePlans(cb: () => void): () => void {
   };
 }
 
-// Client snapshot for useSyncExternalStore (cached reference, so React
-// doesn't loop). Server snapshot is always [] to match SSR.
+// Cached reference so React doesn't loop. Server snapshot is [] for SSR.
 export function getPlansSnapshot(): Plan[] {
   if (!cache) cache = read();
   return cache;

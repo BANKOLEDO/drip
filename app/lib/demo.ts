@@ -1,10 +1,8 @@
 import type { StockSymbol } from "./tokens";
 
-// Curated demo market: every symbol resolves INSTANTLY to plausible numbers
-// so the demo never shows a spinner, a blank, or another tab's stale data.
-// Fair values track real markets loosely; premiums are scripted so every tab
-// tells the guard story (most buys clear, a few spike into deferral).
-// THESE ARE ILLUSTRATIVE, not quotes. Live mode always uses real feeds.
+// Curated demo market: every symbol resolves instantly, zero network.
+// Values are illustrative, not quotes. Premiums are scripted so each tab
+// tells the guard story: most buys clear, a few spike into deferral.
 export const DEMO_MARKET: Record<StockSymbol, { fairUsd: number; bpsOver: number }> = {
   AAPLx: { fairUsd: 261.12, bpsOver: 45 },
   NVDAx: { fairUsd: 192.4, bpsOver: 30 },

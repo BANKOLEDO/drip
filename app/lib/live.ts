@@ -1,7 +1,6 @@
-// Live market data for the guard: fair price from Kraken / Pyth /
-// PreStocks / Tessera; on-chain quote from Jupiter. Client-safe plain
-// fetch with short timeout so callers can fall back to mock data when
-// offline or rate-limited.
+// Live market data for the guard. Fair price from Kraken / Pyth /
+// PreStocks / Tessera; on-chain quote from Jupiter. Short timeouts so
+// callers fall back fast when offline or rate-limited.
 
 import { pythFairPrice } from "./pyth";
 import { DEMO_MARKET, demoQuoteUsd } from "./demo";
@@ -18,15 +17,12 @@ export interface PremiumSnapshot {
   quoteUsd: number;
   quoteBpsOverFair: number;
   maxPremiumBps: number;
-  // Age of the fair price behind this snapshot. The keeper refuses to buy
-  // on stale data (fail-closed): anything older than STALE_FAIR_SEC forces
-  // a pause, never a demo fill.
+  // Age of the fair price. The keeper never buys on stale data.
   fairAgeSec: number | null;
   atUtc: string;
 }
 
-// A fair price plus its age. Age is what makes devnet as solid as mainnet:
-// every source reports how old its number is, and the guard acts on it.
+// Fair price plus its age. The guard acts on both.
 export interface FairQuote {
   price: number;
   ageSec: number;
@@ -48,10 +44,9 @@ async function fetchJson(
   }
 }
 
-// Kraken lists backed tokens as AAPLxUSD (authoritative); for pairs it
-// doesn't carry and for networks where Kraken is unreachable, fall back
-// to the underlying's last price (the x-token mirrors it). Both candidates
-// fire in parallel so one hanging pair can't stall the guard.
+// Kraken lists backed tokens as AAPLxUSD; otherwise falls back to the
+// underlying's price. Both pairs fire in parallel so one slow pair can't
+// stall the guard.
 async function krakenFairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
   const pairs = [`${symbol}USD`, `${symbol.replace(/x$/, "")}USD`];
   const responses = await Promise.all(
@@ -67,8 +62,8 @@ async function krakenFairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
   return null;
 }
 
-// Universe-wide fallback that is reachable from every region: Yahoo chart
-// metadata carries the regular market price for every base symbol.
+// Yahoo chart metadata carries the market price for every base symbol.
+// Reachable from every region; the fallback of last resort.
 async function yahooFairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
   const base = symbol.replace(/x$/, "");
   const json = await fetchJson(`${YAHOO_CHART}${base}?range=1d&interval=1m`, {
@@ -100,15 +95,13 @@ async function marketProxyFairPrice(symbol: StockSymbol): Promise<FairQuote | nu
 }
 
 export async function fairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
-  // Demo mode short-circuits everything: curated instant numbers, zero
-  // network, zero spinners. Live mode runs the real fallback chain.
+  // Demo mode: curated instant numbers, zero network.
   if (getDataMode() === "demo") {
     return { price: DEMO_MARKET[symbol].fairUsd, ageSec: 0 };
   }
   const category = STOCKS[symbol].category;
   if (category === "prestocks" || category === "tessera") {
-    // Private-market assets: proxy through /api/market. Kraken/Yahoo
-    // won't carry them, but the fallback chain keeps things robust.
+    // No Kraken coverage here: proxy first, Yahoo fallback.
     return (await marketProxyFairPrice(symbol)) ?? (await yahooFairPrice(symbol));
   }
   // Public equities: Pyth first, Kraken second, Yahoo third.
@@ -133,9 +126,7 @@ async function jupiterQuoteUsd(
   const json = await fetchJson(url);
   const outAmount = Number((json as { outAmount?: string })?.outAmount);
   if (!Number.isFinite(outAmount) || outAmount <= 0) return null;
-  // Per-asset decimals verified on-chain: xStocks = 8,
-  // PreStocks + T-Tokens = 9. The old XSTOCK_DECIMALS constant was wrong
-  // for private-market mints.
+  // Per-asset decimals, verified on-chain: xStocks 8, PreStocks/T-Tokens 9.
   const shares = outAmount / 10 ** stock.decimals;
   return amountUsdc / shares;
 }

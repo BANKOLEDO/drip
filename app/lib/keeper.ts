@@ -1,7 +1,5 @@
-// Keeper gating loop: checks corporate actions, then the live premium
-// snapshot, and returns one verdict: BUY | PAUSE | DEFER | WATCH | STALE.
-// Client-safe; every external call has a timeout and degrades safely.
-// Fail-closed: stale data pauses, it never buys.
+// Keeper: checks corporate actions, then the price snapshot. Verdicts:
+// BUY | PAUSE | DEFER | WATCH | STALE. Fail-closed, stale data pauses.
 
 import { getPremiumSnapshot } from "./live";
 import { getDataMode } from "./mode";
