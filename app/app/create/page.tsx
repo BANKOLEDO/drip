@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StockAvatar } from "@/components/stock-avatar";
-import { STOCKS, type StockSymbol } from "@/lib/tokens";
+import { STOCKS, CATEGORY_LABEL, type StockSymbol } from "@/lib/tokens";
 import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -77,6 +77,14 @@ export default function CreatePage() {
                 >
                   <StockAvatar symbol={s} size={36} />
                   <span>{s}</span>
+                  <span
+                    className={cn(
+                      "font-mono text-[9px] uppercase tracking-[0.14em]",
+                      symbol === s ? "text-money-deep/70" : "text-sub/60",
+                    )}
+                  >
+                    {CATEGORY_LABEL[STOCKS[s].category]}
+                  </span>
                 </button>
               ))}
             </div>
