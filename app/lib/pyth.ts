@@ -64,7 +64,9 @@ export function pythPriceIsFresh(q: PythQuote, nowSec = Date.now() / 1000): bool
 
 // Client entry point: same-origin API route, never the Hermes URL (the key
 // stays server-side). Returns null when Pyth is down so callers fall back.
-export async function pythFairPrice(symbol: StockSymbol): Promise<number | null> {
+export async function pythFairPrice(
+  symbol: StockSymbol,
+): Promise<{ price: number; ageSec: number } | null> {
   try {
     const res = await fetch(`/api/pyth?symbol=${symbol}`, {
       signal: AbortSignal.timeout(8_000),
@@ -74,7 +76,7 @@ export async function pythFairPrice(symbol: StockSymbol): Promise<number | null>
     if (!q || typeof q !== "object" || !("price" in q)) return null;
     const quote = q as PythQuote;
     if (quote.symbol !== symbol) return null;
-    return pythPriceIsFresh(quote) ? quote.price : null;
+    return pythPriceIsFresh(quote) ? { price: quote.price, ageSec: quote.ageSec } : null;
   } catch {
     return null;
   }
