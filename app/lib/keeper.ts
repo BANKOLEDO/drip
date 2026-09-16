@@ -1,10 +1,10 @@
-// Keeper gating loop: the decision engine behind "the guard". Runs in the
-// browser on a timer (demo gating-app per AGENTS.md): each tick it checks
-// Backed's corporate-action feed for the next multiplier flip, then the live
-// premium snapshot, and returns one verdict: BUY | PAUSE | DEFER | WATCH.
-// Client-safe; every external call has a timeout and degrades to WATCH.
+// Keeper gating loop: checks corporate actions, then the live premium
+// snapshot, and returns one verdict: BUY | PAUSE | DEFER | WATCH | STALE.
+// Client-safe; every external call has a timeout and degrades safely.
+// Fail-closed: stale data pauses, it never buys.
 
 import { getPremiumSnapshot } from "./live";
+import { getDataMode } from "./mode";
 import type { StockSymbol } from "./tokens";
 
 const BACKED_CA =
@@ -12,7 +12,12 @@ const BACKED_CA =
 const TIMEOUT_MS = 6_000;
 const PAUSE_MINUTES = 15;
 
-export type KeeperState = "buy" | "pause" | "defer" | "watch";
+export type KeeperState = "buy" | "pause" | "defer" | "watch" | "stale";
+
+// Fair prices older than this never gate a buy. Stale data pauses.
+export const STALE_FAIR_SEC = 15 * 60;
+// Deferrals hold until premium cools to 80% of cap (no boundary flapping).
+export const RESUME_RATIO = 0.8;
 
 export interface KeeperVerdict {
   state: KeeperState;
@@ -38,7 +43,8 @@ async function fetchJson(url: string): Promise<unknown | null> {
 export async function upcomingFlips(
   symbol: StockSymbol,
   now: Date,
-): Promise<Date[]> {
+): Promise<{ flips: Date[]; live: boolean }> {
+  if (getDataMode() === "demo") return { flips: [], live: true };
   const json = await fetchJson(BACKED_CA + symbol);
   const rows = Array.isArray(json)
     ? json
@@ -56,7 +62,7 @@ export async function upcomingFlips(
     const ageH = (now.getTime() - flip.getTime()) / 3_600_000;
     if (ageH > -24 && ageH < 24 + 2 * PAUSE_MINUTES / 60) flips.push(flip);
   }
-  return flips.sort((a, b) => b.getTime() - a.getTime());
+  return { flips: flips.sort((a, b) => b.getTime() - a.getTime()), live: json !== null };
 }
 
 export async function evaluatePlan(
@@ -64,10 +70,11 @@ export async function evaluatePlan(
   amountUsdc: number,
   maxPremiumBps: number,
   now = new Date(),
+  prevState: KeeperState | null = null,
 ): Promise<KeeperVerdict> {
   const checkedAtUtc = now.toISOString();
 
-  const flips = await upcomingFlips(symbol, now);
+  const { flips, live: actionsLive } = await upcomingFlips(symbol, now);
   const flip = flips[0] ?? null;
   if (flip) {
     const driftMin = Math.abs(now.getTime() - flip.getTime()) / 60_000;
@@ -94,6 +101,19 @@ export async function evaluatePlan(
       checkedAtUtc,
     };
   }
+  if (snap.fairAgeSec !== null && snap.fairAgeSec > STALE_FAIR_SEC) {
+    return {
+      state: "stale",
+      reason: `Fair price is ${Math.round(snap.fairAgeSec / 60)} min old. Standing aside until feeds recover.`,
+      flipAtUtc: flip?.toISOString() ?? null,
+      quoteBpsOverFair: snap.quoteBpsOverFair,
+      live: true,
+      checkedAtUtc,
+    };
+  }
+  // Hysteresis: enter deferral above cap, leave it only once premium cools
+  // to 80% of cap. Kills buy/defer flapping at the boundary.
+  const resumeLine = prevState === "defer" ? Math.round(maxPremiumBps * RESUME_RATIO) : maxPremiumBps;
   if (snap.quoteBpsOverFair > maxPremiumBps) {
     return {
       state: "defer",
@@ -104,9 +124,22 @@ export async function evaluatePlan(
       checkedAtUtc,
     };
   }
+  if (snap.quoteBpsOverFair > resumeLine) {
+    return {
+      state: "defer",
+      reason: `Holding deferral until premium cools under ${resumeLine} bps.`,
+      flipAtUtc: flip?.toISOString() ?? null,
+      quoteBpsOverFair: snap.quoteBpsOverFair,
+      live: true,
+      checkedAtUtc,
+    };
+  }
+  const unverified = actionsLive
+    ? ""
+    : " Corporate-action feed unreachable, dividend pause unverified.";
   return {
     state: "buy",
-    reason: `Eligible. Quote ${snap.quoteBpsOverFair} bps over fair, inside cap.`,
+    reason: `Eligible. Quote ${snap.quoteBpsOverFair} bps over fair, inside cap.${unverified}`,
     flipAtUtc: flip?.toISOString() ?? null,
     quoteBpsOverFair: snap.quoteBpsOverFair,
     live: true,
