@@ -2,7 +2,7 @@
 
 **Set-and-forget DCA into real US stocks that pauses exactly when it must.**
 
-Recurring auto-investing in tokenized stocks (Backed xStocks) on Solana that handles dividends, splits, and weekend premium traps. Built for the [Stocklana](https://stocklana.com) hackathon — Solana's tokenized-stocks sprint.
+Recurring auto-investing in tokenized stocks (xStocks, PreStocks, T-Tokens) on Solana that handles dividends, splits, and weekend price traps. Built for the [Stocklana](https://stocklana.com) hackathon — Solana's tokenized-stocks sprint.
 
 ## One-line pitch
 
@@ -10,13 +10,13 @@ Set a plan: buy $20 of AAPLx every Monday, $50 of NVDAx biweekly, cap any quote 
 
 ## Why this is non-generic
 
-Generic DCA bots can't handle ex-dates: a tokenized stock's share price resets at 00:30 UTC the day after a dividend, so a naive autopilot buys at the inflated pre-cut price and takes the loss. Drip:
+Generic DCA bots can't handle ex-dates: a tokenized stock's share price resets at 00:30 UTC the day after a dividend, so a naive schedule buys at the inflated pre-cut price and takes the loss. Drip:
 
 - **Pauses on dividend cuts** — watches Backed's corporate-action feed and pauses the next leg around the 00:30 UTC multiplier flip, so you never buy the top right before the reset.
-- **Guards weekend premium** — compares the Jupiter quote to a live fair price; if the premium exceeds your plan cap, the leg defers instead of overpaying.
+- **Guards weekend price gaps** — compares the Jupiter quote to a live fair price; if the quote runs past your plan cap, the leg defers instead of overpaying.
 - **Accounts for every cent** — every fill is stored as raw shares **plus** scaled shares using the mint's on-chain multiplier (Token-2022 scaled-ui-amount extension), so scaled-value history survives the multiplier flips.
 
-Non-generic proof: nobody in Stocklana has bundled pause-on-ex-date + premium guard + scaled-amount accounting.
+Non-generic proof: nobody in Stocklana has bundled pause-on-ex-date + price guard + scaled-amount accounting.
 
 ## What's live today
 
@@ -24,10 +24,12 @@ Non-generic proof: nobody in Stocklana has bundled pause-on-ex-date + premium gu
 |---|---|
 | Web app (Next.js 16) | Running — landing, plan creation, dashboard, plan detail |
 | On-chain Drip program | **Deployed & live** on devnet (`8beC3twEfuHXr5nhVVmbakLdsLqdKShSWQoPhbb5mHMU`), proven with real `initialize_intent` + `record_fill` transactions and a rejected over-cap leg |
-| Fair price | Kraken public `Ticker` API (real AAPLxUSD data) |
+| Fair price | Pyth first, Kraken second, Yahoo third (public); same-origin proxy for PreStocks/Tessera |
 | Corporate actions | Backed `api.backed.fi` feed (multiplier + corporate-action history) |
 | Swaps | Jupiter Swap V2 — user-signed, keeper never swaps |
-| Keeper | Browser `setInterval` gating loop for the demo |
+| Keeper | Browser `setInterval` gating loop for the demo; fail-closed (stale data pauses, deferrals hold to 80% of cap) |
+| Modes | Demo (instant scripted market, wallet off) and Live (real feeds), toggled in the header |
+| Plans | Browser-stored with random UUIDs; demo seeds a showcase plan |
 
 ## Architecture
 
@@ -39,7 +41,7 @@ user (browser)
   └─ Drip program (Anchor PDA `dca_intent`: mint, USDC/round, interval, maxPremiumBps, paused)
 ```
 
-The program NEVER swaps and NEVER holds custody. It is accounting + guard: a `dca_intent` PDA that records fills, a `paused` flag flipped around multiplier windows, and a premium cap. Swaps are user-signed through Jupiter; the keeper is a dapp-level convenience, not a trust anchor.
+The program NEVER swaps and NEVER holds custody. It is accounting + guard: a `dca_intent` PDA that records fills, a `paused` flag flipped around multiplier windows, and a price cap. Swaps are user-signed through Jupiter; the keeper is a dapp-level convenience, not a trust anchor.
 
 ## Getting started
 
@@ -70,7 +72,7 @@ Until the program ID is set, the plan page shows "On-chain receipts activate aft
 
 `program/programs/drip/src/lib.rs` — Anchor v1.2.0, Token-2022 scaled-UI aware.
 
-- `initialize_intent` — open a plan (amount, interval 1/7/14d, premium cap).
+- `initialize_intent` — open a plan (amount, interval 1/7/14d, price cap).
 - `set_paused` — keeper flips the guard around the 00:30 UTC window.
 - `record_fill` — owner-signed receipt; fails while paused or above cap; multiplier must match the on-chain Token-2022 extension within 0.1%.
 - `update_plan` / `close_intent` — manage the plan.
