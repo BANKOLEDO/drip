@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
 
-// Site-wide scroll-appear, the way zoneless.com animates every section: an
-// element starts below its resting spot and rises in the first time it enters
-// the viewport. IntersectionObserver fires once, then the observer detaches.
+// Site-wide scroll-appear: an element rises in every time it enters the
+// viewport, scrolling down or back up. IntersectionObserver stays attached
+// and toggles visibility, so leaving and re-entering replays the motion.
+// Pass once for wrappers around live, polling content (price feeds): replay
+// restarts mid-tick and glitches, so those reveal on first entry and stay.
 // Reduced-motion viewers get content immediately. A noscript style keeps the
 // content visible for crawlers and no-JS users.
 
@@ -15,6 +17,7 @@ type RevealProps = {
   className?: string;
   from?: "up" | "down" | "left" | "right" | "scale";
   delay?: number;
+  once?: boolean;
 };
 
 const hidden: Record<NonNullable<RevealProps["from"]>, string> = {
@@ -25,7 +28,7 @@ const hidden: Record<NonNullable<RevealProps["from"]>, string> = {
   scale: "scale(0.96)",
 };
 
-export function Reveal({ children, className, from = "up", delay = 0 }: RevealProps) {
+export function Reveal({ children, className, from = "up", delay = 0, once = false }: RevealProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [hit, setHit] = useState(false);
   const reduced = useReducedMotion();
@@ -36,16 +39,21 @@ export function Reveal({ children, className, from = "up", delay = 0 }: RevealPr
 
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setHit(true);
-          io.disconnect();
+        for (const entry of entries) {
+          if (entry.target !== el) continue;
+          if (entry.isIntersecting) {
+            setHit(true);
+            if (once) io.disconnect();
+          } else if (!once) {
+            setHit(false);
+          }
         }
       },
       { rootMargin: "-12% 0px -12% 0px", threshold: 0 },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [reduced]);
+  }, [reduced, once]);
 
   const seen = hit || reduced;
 
