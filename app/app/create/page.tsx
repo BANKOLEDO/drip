@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fairPrice } from "@/lib/live";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StockAvatar } from "@/components/stock-avatar";
@@ -50,6 +51,31 @@ export default function CreatePage() {
   const [amount, setAmount] = useState(50);
   const [intervalDays, setIntervalDays] = useState<1 | 7 | 14>(7);
   const [maxBps, setMaxBps] = useState(100);
+  const [prices, setPrices] = useState<Partial<Record<StockSymbol, number>>>({});
+
+  // Live prices under each pick, so the grid feels like a market, not a
+  // menu. Demo mode resolves instantly; live polls every minute.
+  useEffect(() => {
+    let cancelled = false;
+    async function tick() {
+      const entries = await Promise.all(
+        symbols.map(async (s) => {
+          const q = await fairPrice(s);
+          return [s, q?.price ?? null] as const;
+        }),
+      );
+      if (cancelled) return;
+      const next: Partial<Record<StockSymbol, number>> = {};
+      for (const [s, p] of entries) if (p !== null && p > 0) next[s] = p;
+      setPrices((prev) => ({ ...prev, ...next }));
+    }
+    void tick();
+    const timer = setInterval(tick, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -107,6 +133,9 @@ export default function CreatePage() {
                 >
                   <StockAvatar symbol={s} size={36} />
                   <span>{s}</span>
+                  <span className="font-mono text-xs tabular text-sub">
+                    {prices[s] ? `$${formatMoney(prices[s])}` : "…"}
+                  </span>
                   <span
                     className={cn(
                       "font-mono text-[9px] uppercase tracking-[0.14em]",
