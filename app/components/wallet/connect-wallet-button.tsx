@@ -46,6 +46,7 @@ export function ConnectWalletButton({ className }: { className?: string }) {
   } = useWallet();
   const mmReady = useMetaMaskReady();
   const { mode } = useMode();
+  const pendingRef = useRef<string | null>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -69,14 +70,31 @@ export function ConnectWalletButton({ className }: { className?: string }) {
         setBusy(null);
         return;
       }
+      // select() only schedules state; connecting in the same tick reads
+      // the old wallet and throws WalletNotSelectedError. Park the name
+      // and connect once the effect below sees it selected.
+      if (wallet?.adapter.name === target.adapter.name) {
+        void Promise.resolve(connect())
+          .then(() => setOpen(false))
+          .catch(() => undefined)
+          .finally(() => setBusy(null));
+        return;
+      }
+      pendingRef.current = target.adapter.name;
       select(target.adapter.name);
+    },
+    [connect, select, wallet],
+  );
+
+  useEffect(() => {
+    if (pendingRef.current && wallet?.adapter.name === pendingRef.current) {
+      pendingRef.current = null;
       void Promise.resolve(connect())
         .then(() => setOpen(false))
         .catch(() => undefined)
         .finally(() => setBusy(null));
-    },
-    [connect, select],
-  );
+    }
+  }, [wallet, connect]);
 
   const handlePrimary = useCallback(() => {
     if (connecting || disconnecting) return;
