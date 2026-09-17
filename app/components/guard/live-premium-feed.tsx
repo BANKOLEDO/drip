@@ -92,14 +92,14 @@ export function LivePremiumFeed({
           tone={inTolerance ? "green" : "money"}
           className="justify-self-start sm:justify-self-end"
         >
-          {inTolerance ? "Within tolerance" : "Price spike"}
+          {inTolerance ? "Good to buy" : "Price spike"}
         </Pill>
       </div>
 
       <div className="grid gap-4 border-t border-hair p-6 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
-            Fair price feed
+            Real price
           </p>
           {snap ? (
             <p
