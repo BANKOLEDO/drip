@@ -17,6 +17,7 @@ import {
 } from "@/lib/program";
 import { MULTIPLIER_AAPL } from "@/lib/mock";
 import { STOCKS, type StockSymbol } from "@/lib/tokens";
+import { useMode } from "@/components/mode/mode-context";
 import { cn } from "@/lib/cn";
 
 // User-signed fill: review (guard check) → sign in wallet → execute.
@@ -40,6 +41,7 @@ export function ExecuteBuy({
   maxPremiumBps: number;
 }) {
   const { connected, publicKey, signTransaction } = useWallet();
+  const { mode } = useMode();
   const [phase, setPhase] = useState<Phase>({ name: "idle" });
   const cluster =
     process.env.NEXT_PUBLIC_NETWORK === "mainnet" ? "mainnet-beta" : "devnet";
@@ -74,8 +76,17 @@ export function ExecuteBuy({
   };
 
   const execute = async () => {
-    if (!publicKey || !signTransaction || phase.name !== "ready") return;
+    if (phase.name !== "ready") return;
     const { shares, bps } = phase;
+    // Demo mode simulates the fill: same review math, no wallet, no chain.
+    if (mode === "demo") {
+      setPhase({ name: "signing", shares, bps });
+      window.setTimeout(() => {
+        setPhase({ name: "done", signature: "demo", shares, bps });
+      }, 900);
+      return;
+    }
+    if (!publicKey || !signTransaction) return;
     setPhase({ name: "signing", shares, bps });
     try {
       const order = await buildBuyOrder(
@@ -98,7 +109,7 @@ export function ExecuteBuy({
     }
   };
 
-  if (!connected) {
+  if (!connected && mode !== "demo") {
     return (
       <p className="text-sm text-sub">
         Connect a wallet above to execute this plan&apos;s buy.
@@ -107,6 +118,18 @@ export function ExecuteBuy({
   }
 
   if (phase.name === "done") {
+    if (phase.signature === "demo") {
+      return (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-ink">
+            Demo fill recorded, not on chain.
+          </p>
+          <p className="font-mono text-xs tabular text-sub">
+            ~{phase.shares.toFixed(4)} {symbol} · switch to Live to move real money
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm text-ink">
@@ -135,7 +158,7 @@ export function ExecuteBuy({
       {phase.name === "ready" && (
         <p className="font-mono text-xs tabular text-sub">
           ~{phase.shares.toFixed(4)} {symbol} @ ${phase.price.toFixed(2)} · +
-          {phase.bps} bps
+          {(phase.bps / 100).toFixed(2)}%
         </p>
       )}
       {phase.name === "error" && (
@@ -166,7 +189,7 @@ export function ExecuteBuy({
             )}
           >
             {phase.name === "quoting"
-              ? "Checking guard…"
+              ? "Checking price…"
               : phase.name === "signing"
                 ? "Waiting for signature…"
                 : "Review buy"}
