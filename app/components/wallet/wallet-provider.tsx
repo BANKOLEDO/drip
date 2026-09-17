@@ -40,7 +40,22 @@ export function WalletProviders({ children }: { children: ReactNode }) {
 
   return (
     <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={[]} autoConnect>
+      <WalletProvider
+        wallets={[]}
+        autoConnect
+        onError={(e) => {
+          // Absent/locked wallet on autoload is normal, not an error.
+          // Only real failures reach the console.
+          const ignorable = [
+            "WalletConnectionError",
+            "WalletNotReadyError",
+            "WalletNotSelectedError",
+            "WalletNotConnectedError",
+          ];
+          if (e instanceof Error && ignorable.includes(e.name)) return;
+          console.error(e);
+        }}
+      >
         <MetaMaskReadyContext.Provider value={mmReady}>
           {children}
         </MetaMaskReadyContext.Provider>
