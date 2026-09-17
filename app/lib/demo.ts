@@ -29,5 +29,11 @@ export const DEMO_MARKET: Record<StockSymbol, { fairUsd: number; bpsOver: number
 
 export function demoQuoteUsd(symbol: StockSymbol): number {
   const d = DEMO_MARKET[symbol];
-  return d.fairUsd * (1 + d.bpsOver / 10_000);
+  return d.fairUsd * demoWobble() * (1 + d.bpsOver / 10_000);
+}
+
+// Slow ±0.04% wobble so demo figures tick like a live market. Far smaller
+// than any guard band, so scripted states never flip.
+export function demoWobble(): number {
+  return 1 + 0.0004 * Math.sin(Date.now() / 45_000);
 }
