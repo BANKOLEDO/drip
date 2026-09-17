@@ -1,11 +1,11 @@
-import Link from "next/link";
 import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
-import { StockAvatar } from "@/components/stock-avatar";
 import { GuardPill } from "@/components/guard/guard-pill";
 import { KeeperStatus } from "@/components/guard/keeper-status";
 import { UserPlans } from "@/components/plan/user-plans";
+import { ActivitySection } from "@/components/plan/activity-section";
+import { WelcomeTour } from "@/components/onboarding/welcome-tour";
 import { DemoBadge } from "@/components/mode/demo-badge";
 import { LivePremiumFeed } from "@/components/guard/live-premium-feed";
 import { CornerMark } from "@/components/ui/corner-mark";
@@ -19,15 +19,6 @@ import {
   mockActivity,
 } from "@/lib/mock";
 import { formatMoney, formatShares } from "@/lib/format";
-
-function timeAgo(iso: string) {
-  const then = new Date(iso).getTime();
-  const diff = Date.now() - then;
-  const h = Math.round(diff / 3_600_000);
-  if (h < 1) return "just now";
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
-}
 
 const ACTIVITY_PAGE_SIZE = 5;
 
@@ -61,6 +52,7 @@ export default async function DashboardPage({
   if (!hasPlans) {
     return (
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-16 sm:px-6">
+        <WelcomeTour />
         <Card className="flex flex-col items-center px-8 py-16 text-center">
           <Image
             src="/assets/empty-state.jpg"
@@ -74,8 +66,8 @@ export default async function DashboardPage({
             No plans yet
           </h1>
           <p className="mt-3 max-w-sm text-center text-sub">
-            Set a schedule. Pick a stock. Drip handles the rest, pausing around
-            dividend flips and premium spikes so every fill is real.
+            Set a schedule. Pick a stock. Drip handles the rest, skipping
+            the buys that would overpay, so every fill is real.
           </p>
           <ButtonLink href="/create" className="mt-6">
             Create your first plan
@@ -92,6 +84,7 @@ export default async function DashboardPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      <WelcomeTour />
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-money-deep">
@@ -101,7 +94,7 @@ export default async function DashboardPage({
             ${formatMoney(value)}
           </h1>
           <p className="mt-3 text-sm text-sub">
-            {formatShares(position.scaledShares, 4)} scaled {position.symbol} ·{" "}
+            {formatShares(position.scaledShares, 4)} {position.symbol} ·{" "}
             1 active plan
           </p>
         </div>
@@ -158,65 +151,13 @@ export default async function DashboardPage({
       <UserPlans seed={plans} />
 
       {/* Activity */}
-      <div className="mt-12 mb-4 flex items-baseline justify-between gap-4">
-        <h2 className="text-xl font-semibold tracking-tight text-ink">
-          Recent activity
-        </h2>
-        <span className="font-mono text-xs text-sub tabular">
-          {activity.length} events
-        </span>
-      </div>
-      <Reveal>
-        <Card className="relative p-0">
-          <CornerMark className="-top-[6px] -left-[6px]" />
-          <CornerMark className="-top-[6px] -right-[6px]" />
-          <CornerMark className="-bottom-[6px] -left-[6px]" />
-          <CornerMark className="-bottom-[6px] -right-[6px]" />
-          <ul className="divide-y divide-hair">
-            {activityEvents.map((a) => (
-              <li key={a.id} className="flex items-start gap-4 p-5">
-                <StockAvatar symbol={a.symbol} size={32} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-ink">{a.description}</p>
-                  <p className="mt-0.5 font-mono text-xs text-sub">{a.detail}</p>
-                </div>
-                <span className="shrink-0 text-xs text-sub">
-                  {timeAgo(a.atUtc)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center justify-between gap-4 border-t border-hair px-5 py-3">
-            {activityPage > 1 ? (
-              <Link
-                href={`/dashboard?activityPage=${activityPage - 1}`}
-                className="font-mono text-xs text-sub transition-colors hover:text-ink"
-              >
-                ← Newer
-              </Link>
-            ) : (
-              <span aria-hidden className="font-mono text-xs text-sub/40">
-                ← Newer
-              </span>
-            )}
-            <span className="font-mono text-xs text-sub tabular">
-              Page {activityPage} of {totalActivityPages}
-            </span>
-            {activityPage < totalActivityPages ? (
-              <Link
-                href={`/dashboard?activityPage=${activityPage + 1}`}
-                className="font-mono text-xs text-sub transition-colors hover:text-ink"
-              >
-                Older →
-              </Link>
-            ) : (
-              <span aria-hidden className="font-mono text-xs text-sub/40">
-                Older →
-              </span>
-            )}
-          </div>
-      </Card>
-      </Reveal>
+      <ActivitySection
+        baseTotal={activity.length}
+        events={activityEvents}
+        page={activityPage}
+        pages={totalActivityPages}
+        seedSymbols={plans.map((p) => p.symbol)}
+      />
     </main>
   );
 }
