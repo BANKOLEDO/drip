@@ -19,11 +19,11 @@ const tone: Record<KeeperVerdict["state"], string> = {
 };
 
 const label: Record<KeeperVerdict["state"], string> = {
-  buy: "Keeper · buy eligible",
-  pause: "Keeper · paused for flip",
-  defer: "Keeper · deferred on price",
+  buy: "Keeper · ready to buy",
+  pause: "Keeper · paused for dividend",
+  defer: "Keeper · waiting on price",
   watch: "Keeper · watching",
-  stale: "Keeper · paused, feeds stale",
+  stale: "Keeper · paused, no fresh prices",
 };
 
 export function KeeperStatus({
