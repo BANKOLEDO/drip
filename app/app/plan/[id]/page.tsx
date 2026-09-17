@@ -5,6 +5,7 @@ import { ScaledReceipt } from "@/components/guard/scaled-receipt";
 import { GuardPill } from "@/components/guard/guard-pill";
 import { PremiumGauge } from "@/components/guard/premium-gauge";
 import { ExecuteBuy } from "@/components/plan/execute-buy";
+import { PriceChart } from "@/components/market/price-chart";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { DemoBadge } from "@/components/mode/demo-badge";
 import { Reveal } from "@/components/motion/reveal";
@@ -25,14 +26,23 @@ function intervalLabel(days: 1 | 7 | 14) {
 
 export default async function PlanDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ logPage?: string }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   // Seeds exist in demo only. Live resolves browser-stored plans.
   const jar = await cookies();
   const pageMode = jar.get(MODE_COOKIE)?.value === "live" ? "live" : DEFAULT_MODE;
   const plan = pageMode === "demo" ? mockPlans.find((p) => p.id === id) : undefined;
+  const LOG_PAGE_SIZE = 5;
+  const totalLogPages = Math.max(1, Math.ceil(mockGuardLog.length / LOG_PAGE_SIZE));
+  const logPage = Math.min(
+    Math.max(1, Number(sp?.logPage ?? 1) || 1),
+    totalLogPages,
+  );
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
@@ -42,12 +52,17 @@ export default async function PlanDetailPage({
       >
         ← Back to dashboard
       </Link>
-      {!plan ? <StoredPlanView id={id} /> : <DemoDetail plan={plan} />}
+      {!plan ? <StoredPlanView id={id} /> : <DemoDetail plan={plan} logPage={logPage} logPages={totalLogPages} />}
     </main>
   );
 }
 
-function DemoDetail({ plan }: { plan: Plan }) {
+function DemoDetail({ plan, logPage, logPages }: { plan: Plan; logPage: number; logPages: number }) {
+  const LOG_PAGE_SIZE = 5;
+  const logEvents = mockGuardLog.slice(
+    (logPage - 1) * LOG_PAGE_SIZE,
+    logPage * LOG_PAGE_SIZE,
+  );
   const position = mockPortfolio[0];
   const value = position.scaledShares * position.priceUsd;
   const nextBuy = new Date(plan.nextBuyUtc);
@@ -85,24 +100,27 @@ function DemoDetail({ plan }: { plan: Plan }) {
 
           <div className="mt-8 grid gap-8 border-t border-hair pt-8 sm:grid-cols-2">
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
-                Scaled shares
-              </p>
-              <ScaledReceipt
-                rawShares={position.rawShares}
-                scaledShares={position.scaledShares}
-                multiplier={position.multiplier}
-                caption="Your shares, post AAPLx dividend scale"
-                className="mt-3"
-              />
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
+              Your shares
+            </p>
+            <ScaledReceipt
+              rawShares={position.rawShares}
+              scaledShares={position.scaledShares}
+              multiplier={position.multiplier}
+              caption="Your shares, dividend math included"
+              className="mt-3"
+            />
             </div>
             <div>
               <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
                 Status
               </p>
-              <div className="mt-3 flex flex-col gap-2">
-                <GuardPill />
-                <PremiumGauge
+            <div className="mt-3 flex flex-col gap-2">
+              <GuardPill />
+              <div className="rounded-[3px] border border-hair bg-paper p-3">
+                <PriceChart symbol={plan.symbol} />
+              </div>
+              <PremiumGauge
                   quoteBpsOverFair={PREMIUM_STATE.quoteBpsOverFair}
                   maxPremiumBps={plan.maxPremiumBps}
                 />
@@ -127,7 +145,7 @@ function DemoDetail({ plan }: { plan: Plan }) {
           <CornerMark className="-bottom-[6px] -left-[6px]" />
           <CornerMark className="-bottom-[6px] -right-[6px]" />
           <MetaRow
-            label="Portfolio value"
+            label="Position value"
             value={`$${formatMoney(value)}`}
             mono
           />
@@ -146,18 +164,23 @@ function DemoDetail({ plan }: { plan: Plan }) {
         </Card>
       </Reveal>
 
-      {/* Guard log */}
+      {/* Guard log: every time the guard stepped in for this plan */}
       <div className="mt-12 mb-4 flex items-baseline justify-between gap-4">
-        <h2 className="text-xl font-semibold tracking-tight text-ink">
-          Guard log
-        </h2>
-        <span className="font-mono text-xs text-sub tabular">
-          {mockGuardLog.length} events
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            Guard log
+          </h2>
+          <p className="mt-0.5 text-sm text-sub">
+            Every time the guard paused or waited on this plan.
+          </p>
+        </div>
+        <span className="shrink-0 font-mono text-xs text-sub tabular">
+          {mockGuardLog.length} total
         </span>
       </div>
       <Reveal>
         <ol className="ml-2 border-l border-hair">
-          {mockGuardLog.map((entry, i) => (
+          {logEvents.map((entry, i) => (
             <li key={i} className="relative pb-8 pl-6 last:pb-0">
               <span
                 aria-hidden
@@ -176,11 +199,40 @@ function DemoDetail({ plan }: { plan: Plan }) {
               </p>
             </li>
           ))}
-          {mockGuardLog.length === 0 && (
+          {logEvents.length === 0 && (
             <li className="pb-0 pl-6 text-sm text-sub">No guard events yet.</li>
           )}
         </ol>
       </Reveal>
+      <div className="mt-4 flex items-center justify-between gap-4">
+        {logPage > 1 ? (
+          <Link
+            href={`/plan/${plan.id}?logPage=${logPage - 1}`}
+            className="font-mono text-xs text-sub transition-colors hover:text-ink"
+          >
+            ← Newer
+          </Link>
+        ) : (
+          <span aria-hidden className="font-mono text-xs text-sub/40">
+            ← Newer
+          </span>
+        )}
+        <span className="font-mono text-xs text-sub tabular">
+          Page {logPage} of {logPages}
+        </span>
+        {logPage < logPages ? (
+          <Link
+            href={`/plan/${plan.id}?logPage=${logPage + 1}`}
+            className="font-mono text-xs text-sub transition-colors hover:text-ink"
+          >
+            Older →
+          </Link>
+        ) : (
+          <span aria-hidden className="font-mono text-xs text-sub/40">
+            Older →
+          </span>
+        )}
+      </div>
     </>
   );
 }
