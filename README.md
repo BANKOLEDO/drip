@@ -80,6 +80,24 @@ Until the program ID is set, the plan page shows "On-chain receipts activate aft
 
 Deploy checklist in `program/README.md`.
 
+## Built on
+
+Drip integrates four sponsor ecosystems end to end:
+
+- **Pyth** — server-side Hermes proxy (`app/app/api/pyth/route.ts`) keeps
+  the API key out of the browser. Staleness (15 min) and confidence (1%)
+  gating; null falls back to Kraken/Yahoo. Feed IDs in `app/lib/pyth.ts`.
+- **PreStocks** — 8-asset pre-IPO universe with verified mints and 9-decimal
+  handling, mark prices via the keyless same-origin proxy
+  (`app/app/api/market/route.ts`).
+- **Tessera** — 3-asset community-token universe, same proxy path and
+  per-mint decimals.
+- **Jupiter** — user-signed Swap V2 execution; quote-only order calls for
+  the guard's on-chain price.
+
+Try it: flip the Demo/Live toggle in the header, watch the guard defer an
+over-cap PreStocks quote, then clear a public one.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
