@@ -3,14 +3,18 @@
 // callers fall back fast when offline or rate-limited.
 
 import { pythFairPrice } from "./pyth";
-import { DEMO_MARKET, demoQuoteUsd } from "./demo";
+import { DEMO_MARKET, demoQuoteUsd, demoWobble } from "./demo";
 import { getDataMode } from "./mode";
 import { STOCKS, USDC_MINT, type StockSymbol } from "./tokens";
 
 const KRAKEN_TICKER = "https://api.kraken.com/0/public/Ticker?pair=";
 const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/";
 const JUPITER_ORDER = "https://api.jup.ag/swap/v2/order";
-const TIMEOUT_MS = 6_000;
+const TIMEOUT_MS = 4_000;
+
+// Rolling session trace per symbol: every successful fair read appends.
+// Feeds the chart for assets with no intraday API (private markets). Real
+// polls only, grows during the session, never backfilled.
 
 export interface PremiumSnapshot {
   fairUsd: number;
@@ -23,9 +27,24 @@ export interface PremiumSnapshot {
 }
 
 // Fair price plus its age. The guard acts on both.
+// Fair price plus its age. The guard acts on both.
 export interface FairQuote {
   price: number;
   ageSec: number;
+}
+
+const TRACE_MAX = 48;
+const traces = new Map<StockSymbol, number[]>();
+
+export function recordTrace(symbol: StockSymbol, price: number): void {
+  const arr = traces.get(symbol) ?? [];
+  arr.push(price);
+  if (arr.length > TRACE_MAX) arr.splice(0, arr.length - TRACE_MAX);
+  traces.set(symbol, arr);
+}
+
+export function sessionTrace(symbol: StockSymbol): number[] {
+  return traces.get(symbol) ?? [];
 }
 
 async function fetchJson(
@@ -78,7 +97,24 @@ async function yahooFairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
     : null;
 }
 
-// Server-side proxy for PreStocks and Tessera (both CORS-blocked in browser).
+// Same-origin fair proxy: the server races Kraken + Yahoo without CORS
+// or regional hangs. First choice in browsers, direct chain as backup.
+async function apiFairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
+  try {
+    const res = await fetch(`/api/fair?symbol=${encodeURIComponent(symbol)}`, {
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { price?: number; symbol?: StockSymbol };
+    if (body.symbol !== symbol) return null;
+    const p = Number(body.price);
+    return Number.isFinite(p) && p > 0 ? { price: p, ageSec: 0 } : null;
+  } catch {
+    return null;
+  }
+}
+
+// Server-side proxy for PreStocks and Tessera (CORS-blocked in browser).
 async function marketProxyFairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
   try {
     const res = await fetch(`/api/market?symbol=${encodeURIComponent(symbol)}`, {
@@ -97,19 +133,30 @@ async function marketProxyFairPrice(symbol: StockSymbol): Promise<FairQuote | nu
 export async function fairPrice(symbol: StockSymbol): Promise<FairQuote | null> {
   // Demo mode: curated instant numbers, zero network.
   if (getDataMode() === "demo") {
-    return { price: DEMO_MARKET[symbol].fairUsd, ageSec: 0 };
+    const price = DEMO_MARKET[symbol].fairUsd * demoWobble();
+    recordTrace(symbol, price);
+    return { price, ageSec: 0 };
   }
   const category = STOCKS[symbol].category;
+  // All sources fire at once; priority picks the winner. Worst case is one
+  // timeout, not the sum of four.
+  const [proxy, yahoo, pyth, kraken, server] = await Promise.all([
+    category === "prestocks" || category === "tessera"
+      ? marketProxyFairPrice(symbol)
+      : Promise.resolve(null),
+    yahooFairPrice(symbol),
+    category === "public" ? pythFairPrice(symbol) : Promise.resolve(null),
+    category === "public" ? krakenFairPrice(symbol) : Promise.resolve(null),
+    category === "public" ? apiFairPrice(symbol) : Promise.resolve(null),
+  ]);
   if (category === "prestocks" || category === "tessera") {
-    // No Kraken coverage here: proxy first, Yahoo fallback.
-    return (await marketProxyFairPrice(symbol)) ?? (await yahooFairPrice(symbol));
+    const quote = proxy ?? yahoo;
+    if (quote) recordTrace(symbol, quote.price);
+    return quote;
   }
-  // Public equities: Pyth first, Kraken second, Yahoo third.
-  return (
-    (await pythFairPrice(symbol)) ??
-    (await krakenFairPrice(symbol)) ??
-    (await yahooFairPrice(symbol))
-  );
+  const quote = server ?? pyth ?? kraken ?? yahoo;
+  if (quote) recordTrace(symbol, quote.price);
+  return quote;
 }
 
 // Keyless quote: how much one share effectively costs buying $amountUsdc now.
