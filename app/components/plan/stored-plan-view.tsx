@@ -7,8 +7,10 @@ import { Pill } from "@/components/ui/pill";
 import { StockAvatar } from "@/components/stock-avatar";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { LivePremiumFeed } from "@/components/guard/live-premium-feed";
+import { GuardPill } from "@/components/guard/guard-pill";
 import { KeeperStatus } from "@/components/guard/keeper-status";
 import { ExecuteBuy } from "@/components/plan/execute-buy";
+import { PriceChart } from "@/components/market/price-chart";
 import { DemoBadge } from "@/components/mode/demo-badge";
 import { getStoredPlan, getPlansSnapshot, getPlansServerSnapshot, subscribePlans } from "@/lib/plans";
 import { STOCKS } from "@/lib/tokens";
@@ -74,12 +76,29 @@ export function StoredPlanView({ id }: { id: string }) {
           </div>
           <Pill tone="green">Active</Pill>
         </div>
-        <div className="mt-6 border-t border-hair pt-4">
-          <KeeperStatus
-            symbol={plan.symbol}
-            amountUsdc={plan.amountUsdcPerInterval}
-            maxPremiumBps={plan.maxPremiumBps}
-          />
+
+        <div className="mt-8 grid gap-8 border-t border-hair pt-8 sm:grid-cols-2">
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
+              Your shares
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-sub">
+              No fills yet. Your first buy lands here, with its receipt.
+            </p>
+          </div>
+          <div>
+            <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
+              Status
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <GuardPill />
+              <KeeperStatus
+                symbol={plan.symbol}
+                amountUsdc={plan.amountUsdcPerInterval}
+                maxPremiumBps={plan.maxPremiumBps}
+              />
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -90,6 +109,12 @@ export function StoredPlanView({ id }: { id: string }) {
         <CornerMark className="-top-[6px] -right-[6px]" />
         <CornerMark className="-bottom-[6px] -left-[6px]" />
         <CornerMark className="-bottom-[6px] -right-[6px]" />
+        <p className="mb-3 font-mono text-xs uppercase tracking-[0.18em] text-sub">
+          Order ticket
+        </p>
+        <div className="mb-4 rounded-[3px] border border-hair bg-paper p-3">
+          <PriceChart symbol={plan.symbol} />
+        </div>
         <ExecuteBuy
           symbol={plan.symbol}
           amountUsdc={plan.amountUsdcPerInterval}
@@ -118,6 +143,25 @@ export function StoredPlanView({ id }: { id: string }) {
           </p>
         </div>
       </Card>
+
+      <div className="mt-2 mb-1 flex items-baseline justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            Guard log
+          </h2>
+          <p className="mt-0.5 text-sm text-sub">
+            Every time the guard paused or waited on this plan.
+          </p>
+        </div>
+        <span className="shrink-0 font-mono text-xs text-sub tabular">
+          0 total
+        </span>
+      </div>
+      <ol className="ml-2 border-l border-hair">
+        <li className="pb-0 pl-6 text-sm text-sub">
+          No guard events yet. Pauses and waits will land here.
+        </li>
+      </ol>
     </div>
   );
 }
