@@ -48,8 +48,10 @@ export function getPlansSnapshot(): Plan[] {
   return cache;
 }
 
+const NO_PLANS: Plan[] = [];
+
 export function getPlansServerSnapshot(): Plan[] {
-  return [];
+  return NO_PLANS;
 }
 
 export function listStoredPlans(): Plan[] {
