@@ -34,7 +34,7 @@ export const MULTIPLIER_SPY = 1.005714560286254;
 
 export const mockPlans: Plan[] = [
   {
-    id: "plan-001",
+    id: "demo-aapl-weekly",
     symbol: "AAPLx",
     amountUsdcPerInterval: 50,
     intervalDays: 7,
