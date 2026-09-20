@@ -10,6 +10,7 @@ import { CornerMark } from "@/components/ui/corner-mark";
 import { DemoBadge } from "@/components/mode/demo-badge";
 import { Reveal } from "@/components/motion/reveal";
 import { StoredPlanView } from "@/components/plan/stored-plan-view";
+import { ClosePlanButton } from "@/components/plan/close-plan-button";
 import { mockPlans, mockPortfolio, mockGuardLog, PREMIUM_STATE, type Plan } from "@/lib/mock";
 import { MODE_COOKIE, DEFAULT_MODE } from "@/lib/mode-keys";
 import { cookies } from "next/headers";
@@ -95,7 +96,10 @@ function DemoDetail({ plan, logPage, logPages }: { plan: Plan; logPage: number; 
                 </p>
               </div>
             </div>
-            <Pill tone="green">Active</Pill>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <Pill tone="green">Active</Pill>
+              <ClosePlanButton id={plan.id} seed />
+            </div>
           </div>
 
           <div className="mt-6 rounded-[3px] border border-hair bg-paper p-3 sm:p-4">
