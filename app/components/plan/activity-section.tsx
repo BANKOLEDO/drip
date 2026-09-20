@@ -8,10 +8,16 @@ import { CornerMark } from "@/components/ui/corner-mark";
 import { Reveal } from "@/components/motion/reveal";
 import { useMode } from "@/components/mode/mode-context";
 import {
+  getFillsSnapshot,
+  getFillsServerSnapshot,
+  subscribeFills,
+} from "@/lib/demo-ledger";
+import {
   getPlansSnapshot,
   getPlansServerSnapshot,
   subscribePlans,
 } from "@/lib/plans";
+import { formatMoney } from "@/lib/format";
 import type { StockSymbol } from "@/lib/tokens";
 
 export interface ActivityEvent {
@@ -33,7 +39,7 @@ function timeAgo(iso: string) {
 
 const PULSE: { symbol: StockSymbol; description: string; detail: string }[] = [
   { symbol: "AAPLx", description: "Guard check passed", detail: "Quote +0.45% vs fair, inside 1.00% cap" },
-  { symbol: "AAPLx", description: "Buy +$50.00 USDC", detail: "0.19 shares filled at $262.30" },
+  { symbol: "AAPLx", description: "Dividend scan", detail: "No flips within 24 hours" },
   { symbol: "SPACEx", description: "Guard deferred a buy", detail: "Quote 5.20x fair, over 3.00% cap" },
   { symbol: "SPYx", description: "Keeper heartbeat", detail: "3 plans evaluated, 0 actions" },
   { symbol: "T-OpenAI", description: "Guard check passed", detail: "Quote +0.40% vs fair, inside 3.00% cap" },
@@ -103,6 +109,20 @@ export function ActivitySection({
   const pulse = useSyncExternalStore(subscribe, readPulse, getPulseServerSnapshot);
   const n = mode === "demo" ? pulse : 0;
 
+  const fills = useSyncExternalStore(subscribeFills, getFillsSnapshot, getFillsServerSnapshot);
+  const fillRows: ActivityEvent[] =
+    mode !== "demo"
+      ? []
+      : fills
+          .slice()
+          .reverse()
+          .map((f) => ({
+            id: f.id,
+            symbol: f.symbol as StockSymbol,
+            description: `Buy +$${formatMoney(f.amountUsdc)} USDC`,
+            detail: `${f.shares.toFixed(4)} ${f.symbol} filled at $${formatMoney(f.priceUsd)}`,
+            atUtc: f.atUtc,
+          }));
   const live = mode !== "demo" || pool.length === 0 ? [] : Array.from(
     { length: Math.min(n + 1, 3, pool.length) },
     (_, i) => ({ ...pool[(n - i) % pool.length], k: n - i }),
@@ -120,7 +140,7 @@ export function ActivitySection({
           </p>
         </div>
         <span className="shrink-0 font-mono text-xs text-sub tabular">
-          {baseTotal + live.length} events
+          {baseTotal + live.length + fillRows.length} events
         </span>
       </div>
       <Reveal>
@@ -149,6 +169,18 @@ export function ActivitySection({
             </div>
           )}
           <ul className="divide-y divide-hair">
+            {fillRows.map((a) => (
+              <li key={a.id} className="flex items-start gap-4 bg-money/[0.03] p-5">
+                <StockAvatar symbol={a.symbol} size={32} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-ink">{a.description}</p>
+                  <p className="mt-0.5 font-mono text-xs text-sub">{a.detail}</p>
+                </div>
+                <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-leaf">
+                  yours
+                </span>
+              </li>
+            ))}
             {events.map((a) => (
               <li key={a.id} className="flex items-start gap-4 p-5">
                 <StockAvatar symbol={a.symbol} size={32} />
