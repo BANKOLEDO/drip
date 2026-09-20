@@ -18,15 +18,48 @@ export async function GET(req: Request): Promise<NextResponse> {
       signal: AbortSignal.timeout(TIMEOUT_MS),
       headers: { "User-Agent": "drip/1.0 (chart feed)" },
     });
-    if (!res.ok) return NextResponse.json({ closes: [] }, { status: 502 });
+    if (!res.ok) return NextResponse.json({ candles: [] }, { status: 502 });
     const json = (await res.json()) as {
-      chart?: { result?: { indicators?: { quote?: { close?: (number | null)[] }[] } }[] };
+      chart?: {
+        result?: {
+          timestamp?: number[];
+          indicators?: {
+            quote?: {
+              open?: (number | null)[];
+              high?: (number | null)[];
+              low?: (number | null)[];
+              close?: (number | null)[];
+              volume?: (number | null)[];
+            }[];
+          };
+        }[];
+      };
     };
-    const closes = (
-      json.chart?.result?.[0]?.indicators?.quote?.[0]?.close ?? []
-    ).filter((c): c is number => typeof c === "number" && Number.isFinite(c));
-    return NextResponse.json({ symbol: raw, closes });
+    const result = json.chart?.result?.[0];
+    const times = result?.timestamp ?? [];
+    const q = result?.indicators?.quote?.[0];
+    const candles: { t: number; o: number; h: number; l: number; c: number; v: number }[] = [];
+    for (let i = 0; i < times.length; i++) {
+      const o = q?.open?.[i];
+      const h = q?.high?.[i];
+      const l = q?.low?.[i];
+      const c = q?.close?.[i];
+      if (
+        typeof o !== "number" || typeof h !== "number" ||
+        typeof l !== "number" || typeof c !== "number" ||
+        ![o, h, l, c].every(Number.isFinite)
+      ) {
+        continue;
+      }
+      const v = q?.volume?.[i];
+      candles.push({
+        t: times[i],
+        o, h, l, c,
+        v: typeof v === "number" && Number.isFinite(v) ? v : 0,
+      });
+    }
+    return NextResponse.json({ symbol: raw, candles });
   } catch {
-    return NextResponse.json({ closes: [] }, { status: 502 });
+    return NextResponse.json({ candles: [] }, { status: 502 });
   }
 }
