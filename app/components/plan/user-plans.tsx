@@ -7,7 +7,7 @@ import { Pill } from "@/components/ui/pill";
 import { StockAvatar } from "@/components/stock-avatar";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { Reveal } from "@/components/motion/reveal";
-import { getPlansSnapshot, getPlansServerSnapshot, subscribePlans } from "@/lib/plans";
+import { getPlansSnapshot, getPlansServerSnapshot, subscribePlans, hiddenSeedIds } from "@/lib/plans";
 import { STOCKS } from "@/lib/tokens";
 import { formatMoney } from "@/lib/format";
 import type { Plan } from "@/lib/mock";
@@ -19,7 +19,9 @@ export function UserPlans({ seed }: { seed: Plan[] }) {
 
   const seen = new Set<string>();
   const plans: Plan[] = [];
+  const hidden = hiddenSeedIds();
   for (const p of [...stored, ...seed]) {
+    if (p.id && hidden.includes(p.id)) continue;
     if (seen.has(p.id)) continue;
     seen.add(p.id);
     plans.push(p);
