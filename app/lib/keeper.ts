@@ -115,7 +115,7 @@ export async function evaluatePlan(
   if (snap.quoteBpsOverFair > maxPremiumBps) {
     return {
       state: "defer",
-      reason: `Quote ${snap.quoteBpsOverFair} bps over fair, cap ${maxPremiumBps} bps. Buy waits.`,
+      reason: `App price ${(snap.quoteBpsOverFair / 100).toFixed(2)}% over real price, cap ${(maxPremiumBps / 100).toFixed(2)}%. Buy waits.`,
       flipAtUtc: flip?.toISOString() ?? null,
       quoteBpsOverFair: snap.quoteBpsOverFair,
       live: true,
@@ -125,7 +125,7 @@ export async function evaluatePlan(
   if (snap.quoteBpsOverFair > resumeLine) {
     return {
       state: "defer",
-      reason: `Holding deferral until premium cools under ${resumeLine} bps.`,
+      reason: `Holding until the overprice cools under ${(resumeLine / 100).toFixed(2)}%.`,
       flipAtUtc: flip?.toISOString() ?? null,
       quoteBpsOverFair: snap.quoteBpsOverFair,
       live: true,
@@ -137,7 +137,7 @@ export async function evaluatePlan(
     : " Corporate-action feed unreachable, dividend pause unverified.";
   return {
     state: "buy",
-    reason: `Eligible. Quote ${snap.quoteBpsOverFair} bps over fair, inside cap.${unverified}`,
+    reason: `Eligible. App price +${(snap.quoteBpsOverFair / 100).toFixed(2)}% over real price, inside your ${(maxPremiumBps / 100).toFixed(2)}% cap.${unverified}`,
     flipAtUtc: flip?.toISOString() ?? null,
     quoteBpsOverFair: snap.quoteBpsOverFair,
     live: true,
