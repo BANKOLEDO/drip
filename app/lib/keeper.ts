@@ -5,8 +5,7 @@ import { getPremiumSnapshot } from "./live";
 import { getDataMode } from "./mode";
 import type { StockSymbol } from "./tokens";
 
-const BACKED_CA =
-  "https://api.backed.fi/api/v2/public/corporate-actions/history?symbol=";
+const ACTIONS_PROXY = "/api/actions?symbol=";
 const TIMEOUT_MS = 6_000;
 const PAUSE_MINUTES = 15;
 
@@ -43,7 +42,7 @@ export async function upcomingFlips(
   now: Date,
 ): Promise<{ flips: Date[]; live: boolean }> {
   if (getDataMode() === "demo") return { flips: [], live: true };
-  const json = await fetchJson(BACKED_CA + symbol);
+  const json = await fetchJson(ACTIONS_PROXY + symbol);
   const rows = Array.isArray(json)
     ? json
     : ((json as { data?: unknown[] })?.data ?? []);
