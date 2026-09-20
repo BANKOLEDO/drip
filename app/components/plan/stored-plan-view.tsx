@@ -10,6 +10,7 @@ import { LivePremiumFeed } from "@/components/guard/live-premium-feed";
 import { GuardPill } from "@/components/guard/guard-pill";
 import { KeeperStatus } from "@/components/guard/keeper-status";
 import { ExecuteBuy } from "@/components/plan/execute-buy";
+import { ClosePlanButton } from "@/components/plan/close-plan-button";
 import { PriceChart } from "@/components/market/price-chart";
 import { DemoBadge } from "@/components/mode/demo-badge";
 import { getStoredPlan, getPlansSnapshot, getPlansServerSnapshot, subscribePlans } from "@/lib/plans";
@@ -83,9 +84,12 @@ export function StoredPlanView({ id }: { id: string }) {
                 cap {(plan.maxPremiumBps / 100).toFixed(2)}%
               </p>
             </div>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-2">
+              <Pill tone="green">Active</Pill>
+              <ClosePlanButton id={plan.id} />
+            </div>
           </div>
-          <Pill tone="green">Active</Pill>
-        </div>
 
         <div className="mt-8 grid gap-8 border-t border-hair pt-8 sm:grid-cols-2">
           <div>
