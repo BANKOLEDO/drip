@@ -98,6 +98,37 @@ Drip integrates four sponsor ecosystems end to end:
 Try it: flip the Demo/Live toggle in the header, watch the guard defer an
 over-cap PreStocks quote, then clear a public one.
 
+## Testing
+
+```
+cd program && cargo test    # 3 passed: dividend scaling, tolerance band, overflow
+cd app && npx tsc --noEmit  # clean
+cd app && npx eslint . --max-warnings 0
+cd app && pnpm build        # green
+```
+
+## Judging verification (3 minutes, Demo mode on)
+
+1. Open `/` — flip the header toggle to **Demo**, watch the guard refuse
+   SPACEx (black spike) and clear AAPLx (green).
+2. Create a plan (`/create`) — any stock, $50 weekly. Land on its page.
+3. On the plan page, run the order ticket: review, then the demo fill.
+4. Open `/dashboard` — portfolio total grew, your fill tops activity.
+5. Revisit any plan later: pauses and waits land in its guard log.
+
+## Security notes
+
+- Non-custodial: the program never swaps or holds funds; every buy is
+  user-signed. A wrong guard call costs at most one capped buy, never debt.
+- Fail-closed: stale prices pause instead of buying; deferrals hold to 80%
+  of cap; demo fills never touch chain.
+- Unaudited hackathon software on devnet. Nothing here is financial advice.
+
+## Team
+
+Bankole David (Nigeria) — design, program, frontend, keeper. Solo founder,
+building for the users locked out of US brokerages.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
