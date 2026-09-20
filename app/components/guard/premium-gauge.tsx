@@ -18,8 +18,9 @@ export function PremiumGauge({
       <div className="flex items-center justify-between text-xs">
         <span className="font-medium text-ink">Quote vs fair</span>
         <span className="tabular font-mono text-ink">
-          +{(quoteBpsOverFair / 100).toFixed(2)}%
-          {over ? " · over cap" : ` · cap ${(maxPremiumBps / 100).toFixed(2)}%`}
+          {over
+            ? `+${(quoteBpsOverFair / 100).toFixed(2)}% · over cap`
+            : `cap ${(maxPremiumBps / 100).toFixed(2)}%`}
         </span>
       </div>
       <div
@@ -34,8 +35,8 @@ export function PremiumGauge({
       </div>
       <p className="mt-1.5 text-xs text-ink">
         {over
-          ? "Market quote is above your tolerance. Buy deferred to the next window."
-          : "Market quote is within your tolerance. Buy will fill."}
+          ? "App price is above your limit. This buy waits for the next window."
+          : "App price is inside your limit. This buy will fill."}
       </p>
     </div>
   );
