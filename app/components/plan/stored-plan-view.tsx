@@ -13,6 +13,11 @@ import { ExecuteBuy } from "@/components/plan/execute-buy";
 import { PriceChart } from "@/components/market/price-chart";
 import { DemoBadge } from "@/components/mode/demo-badge";
 import { getStoredPlan, getPlansSnapshot, getPlansServerSnapshot, subscribePlans } from "@/lib/plans";
+import {
+  getFillsSnapshot,
+  getFillsServerSnapshot,
+  subscribeFills,
+} from "@/lib/demo-ledger";
 import { STOCKS } from "@/lib/tokens";
 import { formatMoney } from "@/lib/format";
 
@@ -21,6 +26,7 @@ import { formatMoney } from "@/lib/format";
 export function StoredPlanView({ id }: { id: string }) {
   useSyncExternalStore(subscribePlans, getPlansSnapshot, getPlansServerSnapshot);
   const plan = getStoredPlan(id);
+  const fills = useSyncExternalStore(subscribeFills, getFillsSnapshot, getFillsServerSnapshot);
 
   if (plan === undefined) {
     return (
@@ -45,6 +51,10 @@ export function StoredPlanView({ id }: { id: string }) {
       </Card>
     );
   }
+
+  const mine = fills.filter((f) => f.symbol === plan.symbol);
+  const mineShares = mine.reduce((n, f) => n + f.shares, 0);
+  const mineUsdc = mine.reduce((n, f) => n + f.amountUsdc, 0);
 
   const stock = STOCKS[plan.symbol];
   const nextBuy = new Date(plan.nextBuyUtc);
@@ -82,9 +92,21 @@ export function StoredPlanView({ id }: { id: string }) {
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
               Your shares
             </p>
-            <p className="mt-3 text-sm leading-relaxed text-sub">
-              No fills yet. Your first buy lands here, with its receipt.
-            </p>
+            {mine.length === 0 ? (
+              <p className="mt-3 text-sm leading-relaxed text-sub">
+                No fills yet. Your first buy lands here, with its receipt.
+              </p>
+            ) : (
+              <div className="mt-3">
+                <p className="font-mono text-2xl font-semibold text-ink tabular">
+                  {mineShares.toFixed(4)}{" "}
+                  <span className="text-sm font-normal text-sub">{plan.symbol}</span>
+                </p>
+                <p className="mt-1 font-mono text-xs tabular text-sub">
+                  ~${formatMoney(mineUsdc)} across {mine.length} demo fill{mine.length === 1 ? "" : "s"}
+                </p>
+              </div>
+            )}
           </div>
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
