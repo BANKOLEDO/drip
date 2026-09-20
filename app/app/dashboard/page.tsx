@@ -1,12 +1,12 @@
 import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
-import { GuardPill } from "@/components/guard/guard-pill";
 import { KeeperStatus } from "@/components/guard/keeper-status";
+import { PauseCountdown } from "@/components/guard/pause-countdown";
 import { UserPlans } from "@/components/plan/user-plans";
 import { ActivitySection } from "@/components/plan/activity-section";
+import { PortfolioHeader } from "@/components/plan/portfolio-header";
 import { WelcomeTour } from "@/components/onboarding/welcome-tour";
-import { DemoBadge } from "@/components/mode/demo-badge";
 import { LivePremiumFeed } from "@/components/guard/live-premium-feed";
 import { CornerMark } from "@/components/ui/corner-mark";
 import { Reveal } from "@/components/motion/reveal";
@@ -18,7 +18,7 @@ import {
   mockPlans,
   mockActivity,
 } from "@/lib/mock";
-import { formatMoney, formatShares } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 
 const ACTIVITY_PAGE_SIZE = 5;
 
@@ -77,8 +77,6 @@ export default async function DashboardPage({
     );
   }
 
-  const position = portfolio[0];
-  const value = position.scaledShares * position.priceUsd;
   const plan = plans[0];
   const nextBuy = new Date(plan.nextBuyUtc);
 
@@ -86,18 +84,15 @@ export default async function DashboardPage({
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
       <WelcomeTour />
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-[0.18em] text-money-deep">
-            Portfolio value <DemoBadge />
-          </p>
-          <h1 className="mt-2 text-5xl font-semibold tracking-tight text-ink tabular sm:text-6xl">
-            ${formatMoney(value)}
-          </h1>
-          <p className="mt-3 text-sm text-sub">
-            {formatShares(position.scaledShares, 4)} {position.symbol} ·{" "}
-            1 active plan
-          </p>
-        </div>
+        <PortfolioHeader
+          basePositions={portfolio.map((p) => ({
+            symbol: p.symbol,
+            shares: p.scaledShares,
+            value: p.scaledShares * p.priceUsd,
+          }))}
+          seedCount={plans.length}
+          seedSymbols={plans.map((p) => p.symbol)}
+        />
         <ButtonLink href="/create">New plan</ButtonLink>
       </div>
 
@@ -117,7 +112,13 @@ export default async function DashboardPage({
               ${formatMoney(plan.amountUsdcPerInterval)}
             </p>
             <p className="mt-1 text-sm text-sub">
-              {STOCKS[plan.symbol].name} ·{" "}
+              {STOCKS[plan.symbol].name} · every{" "}
+              {plan.intervalDays === 1
+                ? "day"
+                : plan.intervalDays === 7
+                  ? "week"
+                  : "2 weeks"}{" "}
+              ·{" "}
               {new Intl.DateTimeFormat("en-US", {
                 weekday: "short",
                 day: "numeric",
@@ -128,12 +129,15 @@ export default async function DashboardPage({
                 timeZoneName: "short",
               }).format(nextBuy)}
             </p>
+            <p className="mt-1 font-mono text-xs tabular text-sub">
+              <PauseCountdown />
+            </p>
           </div>
-          <GuardPill />
           <KeeperStatus
             symbol={plan.symbol}
             amountUsdc={plan.amountUsdcPerInterval}
             maxPremiumBps={plan.maxPremiumBps}
+            showReason
           />
         </div>
       </Card>
