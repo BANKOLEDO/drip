@@ -8,6 +8,7 @@ import type { Plan } from "./mock";
 import type { StockSymbol } from "./tokens";
 
 const KEY = "drip-user-plans";
+const HIDDEN_KEY = "drip-hidden-plans";
 
 let cache: Plan[] | undefined;
 const listeners = new Set<() => void>();
@@ -63,6 +64,40 @@ export interface PlanInput {
   amountUsdcPerInterval: number;
   intervalDays: 1 | 7 | 14;
   maxPremiumBps: number;
+}
+
+export function closeStoredPlan(id: string): void {
+  const next = getPlansSnapshot().filter((p) => p.id !== id);
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(next));
+  } catch {
+    // Ignore persistence failure; UI already moved on.
+  }
+  cache = next;
+  emit();
+}
+
+// Seeds are static, so closing one hides its id instead of deleting.
+export function hideSeedPlan(id: string): void {
+  try {
+    const raw = window.localStorage.getItem(HIDDEN_KEY);
+    const arr = raw ? (JSON.parse(raw) as string[]) : [];
+    const next = [...new Set([...(Array.isArray(arr) ? arr : []), id])];
+    window.localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));
+  } catch {
+    // Ignore persistence failure.
+  }
+  emit();
+}
+
+export function hiddenSeedIds(): string[] {
+  try {
+    const raw = window.localStorage.getItem(HIDDEN_KEY);
+    const arr = raw ? (JSON.parse(raw) as string[]) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
 }
 
 export function getStoredPlan(id: string): Plan | undefined {
