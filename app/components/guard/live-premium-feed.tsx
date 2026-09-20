@@ -73,8 +73,7 @@ export function LivePremiumFeed({
             Price guard
           </p>
           <p className="mt-2 text-sm text-sub">
-            Fair ${formatMoney(live.fairUsd)} · app price $
-            {formatMoney(live.quoteUsd)} ·{" "}
+            App price ${formatMoney(live.quoteUsd)} ·{" "}
             <span className="font-medium text-ink tabular">
               {live.quoteBpsOverFair > 0 ? "+" : ""}
               {(live.quoteBpsOverFair / 100).toFixed(2)}%
