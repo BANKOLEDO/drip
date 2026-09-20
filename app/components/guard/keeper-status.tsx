@@ -30,10 +30,12 @@ export function KeeperStatus({
   symbol,
   amountUsdc,
   maxPremiumBps,
+  showReason = false,
 }: {
   symbol: StockSymbol;
   amountUsdc: number;
   maxPremiumBps: number;
+  showReason?: boolean;
 }) {
   const [verdict, setVerdict] = useState<KeeperVerdict | null>(null);
   const verdictRef = useRef<KeeperVerdict | null>(null);
@@ -86,16 +88,21 @@ export function KeeperStatus({
   }
 
   return (
-    <p
-      aria-live="polite"
-      title={verdict.reason}
-      className={cn(
-        "inline-flex items-center gap-2 px-1 py-1.5 font-mono text-xs tabular",
-        tone[verdict.state],
+    <div className="flex flex-col gap-1">
+      <p
+        aria-live="polite"
+        title={verdict.reason}
+        className={cn(
+          "inline-flex w-fit items-center gap-2 px-1 py-1.5 font-mono text-xs tabular",
+          tone[verdict.state],
+        )}
+      >
+        <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+        {label[verdict.state]}
+      </p>
+      {showReason && (
+        <p className="max-w-xs text-sm leading-relaxed text-sub">{verdict.reason}</p>
       )}
-    >
-      <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
-      {label[verdict.state]}
-    </p>
+    </div>
   );
 }
