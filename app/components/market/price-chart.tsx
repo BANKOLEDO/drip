@@ -2,18 +2,26 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMode } from "@/components/mode/mode-context";
-import { sessionTrace } from "@/lib/live";
 import { DEMO_MARKET } from "@/lib/demo";
 import { formatMoney } from "@/lib/format";
 import { STOCKS, type StockSymbol } from "@/lib/tokens";
 
-// Intraday chart: real Yahoo 5-minute closes for public symbols, hoverable
-// with a crosshair readout. Private assets have no Yahoo series: demo mode
-// draws a seeded illustrative walk (labeled), live mode hides the chart
-// instead of faking a line.
+export interface Candle {
+  t: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
+  v: number;
+}
+
+// Custom candlestick chart: real Yahoo OHLC for public symbols, hover
+// crosshair with OHLC readout, volume bars, last-price tag. Private assets
+// draw a seeded demo walk (labeled) or hide in live mode.
 const POLL_MS = 60_000;
 const W = 560;
-const H = 180;
+const H = 250;
+const VOL_H = 44;
 const PAD = 8;
 const POINTS = 48;
 
@@ -33,36 +41,27 @@ function mulberry32(a: number) {
   };
 }
 
-function seedWalk(symbol: StockSymbol, fair: number): number[] {
+function seedWalk(symbol: StockSymbol, fair: number): Candle[] {
   const rnd = mulberry32(hash(symbol));
-  const pts = [fair * 0.997];
-  for (let i = 1; i < POINTS; i++) {
-    pts.push(pts[i - 1] * (1 + (rnd() - 0.5) * 0.0012));
+  const now = Math.floor(Date.now() / 300_000) * 300;
+  const out: Candle[] = [];
+  let p = fair * 0.997;
+  for (let i = 0; i < POINTS; i++) {
+    const o = p;
+    const drift = (rnd() - 0.5) * 0.0012;
+    const c = o * (1 + drift);
+    const h = Math.max(o, c) * (1 + rnd() * 0.0004);
+    const l = Math.min(o, c) * (1 - rnd() * 0.0004);
+    out.push({ t: now - (POINTS - 1 - i) * 300, o, h, l, c, v: Math.floor(rnd() * 9000 + 1000) });
+    p = c;
   }
-  const k = fair / pts[pts.length - 1];
-  return pts.map((p) => p * k);
-}
-
-function geometry(closes: number[]) {
-  const min = Math.min(...closes);
-  const max = Math.max(...closes);
-  const span = max - min || 1;
-  const pts = closes.map((c, i) => ({
-    x: PAD + (i * (W - PAD * 2)) / Math.max(1, closes.length - 1),
-    y: PAD + (1 - (c - min) / span) * (H - PAD * 2),
-  }));
-  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const last = pts[pts.length - 1];
-  return {
-    line,
-    area: `${line} L${last.x.toFixed(1)},${H} L${pts[0].x.toFixed(1)},${H} Z`,
-    pts,
-  };
+  const k = fair / out[out.length - 1].c;
+  return out.map((cd) => ({ ...cd, o: cd.o * k, h: cd.h * k, l: cd.l * k, c: cd.c * k }));
 }
 
 export function PriceChart({ symbol }: { symbol: StockSymbol }) {
   const { mode } = useMode();
-  const [closes, setCloses] = useState<number[] | null>(null);
+  const [candles, setCandles] = useState<Candle[] | null>(null);
   const [hover, setHover] = useState<number | null>(null);
   const runId = useRef(0);
   const tradeable = STOCKS[symbol].category === "public";
@@ -78,9 +77,9 @@ export function PriceChart({ symbol }: { symbol: StockSymbol }) {
           signal: AbortSignal.timeout(10_000),
         });
         if (!res.ok) return;
-        const body = (await res.json()) as { closes?: number[] };
+        const body = (await res.json()) as { candles?: Candle[] };
         if (cancelled || id !== runId.current) return;
-        if (body.closes && body.closes.length > 1) setCloses(body.closes);
+        if (body.candles && body.candles.length > 1) setCandles(body.candles);
       } catch {
         // Keep last good series on screen.
       }
@@ -100,17 +99,29 @@ export function PriceChart({ symbol }: { symbol: StockSymbol }) {
         : null,
     [symbol, mode, tradeable],
   );
-  const trace = !tradeable ? sessionTrace(symbol) : [];
-  const series = closes ?? demoSeries ?? (trace.length > 1 ? trace : null);
+  const series = candles ?? demoSeries;
   if (!series || series.length < 2) return null;
 
-  const { line, area, pts } = geometry(series);
-  const first = series[0];
-  const lastClose = series[series.length - 1];
+  const allH = series.map((c) => c.h);
+  const allL = series.map((c) => c.l);
+  const max = Math.max(...allH);
+  const min = Math.min(...allL);
+  const span = max - min || 1;
+  const maxV = Math.max(...series.map((c) => c.v), 1);
+  const priceH = H - VOL_H - PAD * 2;
+  const n = series.length;
+  const slot = (W - PAD * 2) / n;
+  const bodyW = Math.max(3, Math.min(16, slot * 0.62));
+  const y = (p: number) => PAD + (1 - (p - min) / span) * priceH;
+  const cx = (i: number) => PAD + slot * (i + 0.5);
+
+  const first = series[0].o;
+  const lastClose = series[n - 1].c;
   const change = ((lastClose - first) / first) * 100;
-  const hp = hover !== null ? pts[Math.min(hover, pts.length - 1)] : null;
-  const hpPrice = hover !== null ? series[Math.min(hover, series.length - 1)] : null;
-  const flip = hp !== null && hp.x > W * 0.7;
+  const hi = hover !== null ? Math.max(0, Math.min(n - 1, hover)) : null;
+  const hc = hi !== null ? series[hi] : null;
+  const flip = hi !== null && cx(hi) > W * 0.62;
+  const up = (c: Candle) => c.c >= c.o;
 
   return (
     <figure aria-label={`${symbol} price chart`}>
@@ -121,44 +132,134 @@ export function PriceChart({ symbol }: { symbol: StockSymbol }) {
         onMouseMove={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
           const x = ((e.clientX - rect.left) / rect.width) * W;
-          const idx = Math.round(((x - PAD) / (W - PAD * 2)) * (series.length - 1));
-          setHover(Math.max(0, Math.min(series.length - 1, idx)));
+          setHover(Math.max(0, Math.min(n - 1, Math.floor((x - PAD) / slot))));
         }}
         onMouseLeave={() => setHover(null)}
       >
-        <path d={area} fill="var(--money)" opacity="0.08" />
-        <path d={line} fill="none" stroke="var(--money)" strokeWidth="2" strokeLinejoin="round" />
-        {hp !== null && hpPrice !== null && (
-          <g>
-            <line x1={hp.x} y1={0} x2={hp.x} y2={H} stroke="var(--money)" strokeOpacity="0.3" strokeWidth="1" />
-            <circle cx={hp.x} cy={hp.y} r="4" fill="var(--money)" />
+        {[0.25, 0.5, 0.75].map((f) => (
+          <line
+            key={f}
+            x1={PAD}
+            x2={W - PAD}
+            y1={PAD + priceH * f}
+            y2={PAD + priceH * f}
+            stroke="var(--hairline)"
+            strokeWidth="1"
+          />
+        ))}
+        {series.map((c, i) => (
+          <rect
+            key={`v${i}`}
+            x={cx(i) - bodyW / 2}
+            y={H - VOL_H + (1 - c.v / maxV) * (VOL_H - PAD)}
+            width={bodyW}
+            height={Math.max(1, (c.v / maxV) * (VOL_H - PAD))}
+            fill={up(c) ? "var(--leaf)" : "var(--danger)"}
+            opacity={hi === i ? 1 : 0.45}
+          />
+        ))}
+        {series.map((c, i) => (
+          <g key={i}>
+            <line
+              x1={cx(i)}
+              x2={cx(i)}
+              y1={y(c.h)}
+              y2={y(c.l)}
+              stroke={up(c) ? "var(--leaf)" : "var(--danger)"}
+              strokeWidth={Math.max(1, bodyW * 0.18)}
+            />
             <rect
-              x={flip ? hp.x - 92 : hp.x + 8}
-              y={Math.max(2, hp.y - 28)}
-              width="84"
-              height="22"
+              x={cx(i) - bodyW / 2}
+              y={y(Math.max(c.o, c.c))}
+              width={bodyW}
+              height={Math.max(1.5, Math.abs(y(c.o) - y(c.c)))}
+              fill={up(c) ? "var(--leaf)" : "var(--danger)"}
+            />
+          </g>
+        ))}
+        <line
+          x1={PAD}
+          x2={W - PAD}
+          y1={y(lastClose)}
+          y2={y(lastClose)}
+          stroke="var(--money)"
+          strokeWidth="1"
+          strokeDasharray="4 3"
+          strokeOpacity="0.6"
+        />
+        <rect
+          x={W - PAD - 62}
+          y={Math.max(0, y(lastClose) - 11)}
+          width="62"
+          height="22"
+          rx="4"
+          fill="var(--money)"
+        />
+        <text
+          x={W - PAD - 31}
+          y={Math.max(0, y(lastClose) - 11) + 15}
+          textAnchor="middle"
+          fontSize="11"
+          fontFamily="monospace"
+          fill="var(--bg-paper)"
+        >
+          ${formatMoney(lastClose)}
+        </text>
+        {hc !== null && hi !== null && (
+          <g>
+            <line
+              x1={cx(hi)}
+              x2={cx(hi)}
+              y1={0}
+              y2={H}
+              stroke="var(--money)"
+              strokeWidth="1"
+              strokeOpacity="0.35"
+            />
+            <rect
+              x={flip ? cx(hi) - 148 : cx(hi) + 8}
+              y={8}
+              width="140"
+              height="64"
               rx="4"
               fill="var(--money)"
             />
             <text
-              x={flip ? hp.x - 50 : hp.x + 50}
-              y={Math.max(2, hp.y - 28) + 15}
+              x={flip ? cx(hi) - 78 : cx(hi) + 78}
+              y={24}
               textAnchor="middle"
               fontSize="11"
               fontFamily="monospace"
               fill="var(--bg-paper)"
             >
-              ${formatMoney(hpPrice)}
+              O {formatMoney(hc.o)}
+            </text>
+            <text
+              x={flip ? cx(hi) - 78 : cx(hi) + 78}
+              y={40}
+              textAnchor="middle"
+              fontSize="11"
+              fontFamily="monospace"
+              fill="var(--bg-paper)"
+            >
+              H {formatMoney(hc.h)} L {formatMoney(hc.l)}
+            </text>
+            <text
+              x={flip ? cx(hi) - 78 : cx(hi) + 78}
+              y={56}
+              textAnchor="middle"
+              fontSize="11"
+              fontFamily="monospace"
+              fill="var(--bg-paper)"
+            >
+              C {formatMoney(hc.c)}
             </text>
           </g>
-        )}
-        {hp === null && (
-          <circle cx={pts[pts.length - 1].x} cy={pts[pts.length - 1].y} r="3.5" fill="var(--money)" />
         )}
       </svg>
       <figcaption className="mt-1 flex items-baseline justify-between font-mono text-xs tabular">
         <span className="text-sub">
-          {mode === "demo" && !tradeable ? "Demo path" : !tradeable ? "This session" : "Today"}
+          {mode === "demo" && !tradeable ? "Demo path" : !tradeable ? "This session" : "Today · 5m"}
         </span>
         <span className={change >= 0 ? "text-money-deep" : "text-danger"}>
           {change >= 0 ? "+" : ""}
