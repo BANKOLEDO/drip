@@ -98,6 +98,10 @@ function DemoDetail({ plan, logPage, logPages }: { plan: Plan; logPage: number; 
             <Pill tone="green">Active</Pill>
           </div>
 
+          <div className="mt-6 rounded-[3px] border border-hair bg-paper p-3 sm:p-4">
+            <PriceChart symbol={plan.symbol} />
+          </div>
+
           <div className="mt-8 grid gap-8 border-t border-hair pt-8 sm:grid-cols-2">
             <div>
             <p className="font-mono text-xs uppercase tracking-[0.18em] text-sub">
@@ -117,9 +121,6 @@ function DemoDetail({ plan, logPage, logPages }: { plan: Plan; logPage: number; 
               </p>
             <div className="mt-3 flex flex-col gap-2">
               <GuardPill />
-              <div className="rounded-[3px] border border-hair bg-paper p-3">
-                <PriceChart symbol={plan.symbol} />
-              </div>
               <PremiumGauge
                   quoteBpsOverFair={PREMIUM_STATE.quoteBpsOverFair}
                   maxPremiumBps={plan.maxPremiumBps}
