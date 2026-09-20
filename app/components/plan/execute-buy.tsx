@@ -17,6 +17,7 @@ import {
 } from "@/lib/program";
 import { MULTIPLIER_AAPL } from "@/lib/mock";
 import { STOCKS, type StockSymbol } from "@/lib/tokens";
+import { recordDemoFill } from "@/lib/demo-ledger";
 import { useMode } from "@/components/mode/mode-context";
 import { cn } from "@/lib/cn";
 
@@ -77,11 +78,12 @@ export function ExecuteBuy({
 
   const execute = async () => {
     if (phase.name !== "ready") return;
-    const { shares, bps } = phase;
+    const { shares, bps, price } = phase;
     // Demo mode simulates the fill: same review math, no wallet, no chain.
     if (mode === "demo") {
       setPhase({ name: "signing", shares, bps });
       window.setTimeout(() => {
+        recordDemoFill({ symbol, amountUsdc, shares, priceUsd: price });
         setPhase({ name: "done", signature: "demo", shares, bps });
       }, 900);
       return;
