@@ -2,13 +2,15 @@
 // Accounting + guard only: intent PDA, pause flag, scaled receipts.
 // record_fill args mirror programs/drip/src/lib.rs byte-for-byte.
 //
-// DcaIntent, 118 bytes:
-//   8 discriminator | 32 owner | 32 mint | 8 amount_usdc | 2 interval_days |
-//   2 max_premium_bps | 1 paused | 1 bump | 8 fills | 8 total_raw |
-//   8 total_scaled | 8 created_at
+// DcaIntent, 150 bytes (v2 adds the 32-byte keeper):
+//   8 discriminator | 32 owner | 32 mint | 32 keeper | 8 amount_usdc |
+//   2 interval_days | 2 max_premium_bps | 1 paused | 1 bump | 8 fills |
+//   8 total_raw | 8 total_scaled | 8 created_at
 //
 // record_fill args: 8 discriminator | 8 raw_shares | 8 multiplier_scaled |
 //   2 quote_bps_over_fair
+// set_paused args: 8 discriminator | 1 paused
+// set_keeper args: 8 discriminator | 32 new_keeper
 
 import {
   PublicKey,
@@ -54,8 +56,11 @@ function hexToBytes(hex: string): Uint8Array {
   return out;
 }
 
-// record_fill discriminator: sha256("global:record_fill")[0..8] = 6feeb75249a8977d
+// Discriminators: sha256("global:<name>")[0..8]. Verified against the
+// program source; record_fill matches the original deployment.
 const RECORD_FILL_DISC = "6feeb75249a8977d";
+const SET_PAUSED_DISC = "5b3c7dc0b0e1a6da";
+const SET_KEEPER_DISC = "665e174e9ddef3d6";
 
 export function recordFillInstruction(
   programId: PublicKey,
@@ -80,6 +85,48 @@ export function recordFillInstruction(
       { pubkey: mint, isSigner: false, isWritable: false },
     ],
     // web3.js v1 types Buffer; Next polyfills it on the client.
+    data: Buffer.from(data),
+  });
+}
+
+// Owner or delegated keeper flips the pause. The handler enforces
+// authority == owner || authority == keeper, otherwise Unauthorized.
+export function setPausedInstruction(
+  programId: PublicKey,
+  intent: PublicKey,
+  authority: PublicKey,
+  paused: boolean,
+): TransactionInstruction {
+  const data = new Uint8Array(8 + 1);
+  data.set(hexToBytes(SET_PAUSED_DISC), 0);
+  data[8] = paused ? 1 : 0;
+  return new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: intent, isSigner: false, isWritable: true },
+      { pubkey: authority, isSigner: true, isWritable: false },
+    ],
+    data: Buffer.from(data),
+  });
+}
+
+// Owner rotates the delegated keeper. Keeper can only pause, never move
+// funds or edit the plan.
+export function setKeeperInstruction(
+  programId: PublicKey,
+  intent: PublicKey,
+  owner: PublicKey,
+  newKeeper: PublicKey,
+): TransactionInstruction {
+  const data = new Uint8Array(8 + 32);
+  data.set(hexToBytes(SET_KEEPER_DISC), 0);
+  data.set(newKeeper.toBytes(), 8);
+  return new TransactionInstruction({
+    programId,
+    keys: [
+      { pubkey: intent, isSigner: false, isWritable: true },
+      { pubkey: owner, isSigner: true, isWritable: false },
+    ],
     data: Buffer.from(data),
   });
 }
