@@ -44,10 +44,23 @@ Jupiter buys still execute; only the receipt write waits).
 
 ## What the program enforces on-chain
 
-- `record_fill` fails while `paused` (keeper flips via `set_paused`
-  around the 00:30 UTC window) and when premium exceeds the plan cap.
+- `record_fill` fails while `paused` (owner or delegated keeper flips via
+  `set_paused` around the 00:30 UTC window) and when premium exceeds the
+  plan cap. The passed mint must equal `intent.mint`, otherwise
+  `MintMismatch`, so a dummy mint can't bypass the multiplier check.
+- `set_keeper` (owner-only) rotates the delegated keeper. The keeper can
+  only flip `paused`, never move funds (the program holds none) or edit
+  the plan. `initialize_intent` defaults keeper to owner.
 - Multiplier is fixed-point u64 (1e9 scale); all math checked u64 raw.
 - When the mint carries the Token-2022 scaled-ui-amount extension, the
   provided multiplier must agree with
   `StateWithExtensions::get_extension::<ScaledUiAmountConfig>()` within
-  0.1%, otherwise `MultiplierMismatch`. Plain-SPL/test mints skip the check.
+  0.1% relative diff (f64, finite + 0.5x..2.0x band), otherwise
+  `MultiplierMismatch`. Plain-SPL/test mints skip the check.
+
+## Upgrade note (v1 -> v2)
+
+`DcaIntent` grew 118 -> 150 bytes for the `keeper` field. Redeploy, then
+create a new intent per plan; v1 PDAs can't migrate in place (same seeds,
+new size). Until the new program ID is set, the plan page shows "On-chain
+receipts activate after the Drip program deploys".
