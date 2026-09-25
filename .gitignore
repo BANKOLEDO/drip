@@ -35,3 +35,7 @@ id.json
 AGENTS.md
 CLAUDE.md
 tasks/
+
+# hackathon portal narrative (local only, never push to remote)
+docs/submission.md
+docs/pitch-video.md
