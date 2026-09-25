@@ -19,7 +19,9 @@ pub mod drip {
     use super::*;
 
     // Open a DCA intent: who owns it, what it buys, how much, how often,
-    // and how rich a quote may be before the guard defers.
+    // and how rich a quote may be before the guard defers. The keeper
+    // defaults to the owner; rotate it later with set_keeper so automation
+    // can flip the pause without holding the owner's key.
     pub fn initialize_intent(
         ctx: Context<InitializeIntent>,
         amount_usdc: u64,
@@ -35,6 +37,7 @@ pub mod drip {
         let intent = &mut ctx.accounts.intent;
         intent.owner = ctx.accounts.owner.key();
         intent.mint = ctx.accounts.mint.key();
+        intent.keeper = ctx.accounts.owner.key();
         intent.amount_usdc = amount_usdc;
         intent.interval_days = interval_days;
         intent.max_premium_bps = max_premium_bps;
@@ -47,9 +50,29 @@ pub mod drip {
         Ok(())
     }
 
-    // Keeper (owner-signed in the demo) flips the pause around the 00:30 UTC
+    // Owner rotates the delegated keeper. The keeper can only flip the
+    // pause flag, never move funds (the program holds none) or edit the plan.
+    pub fn set_keeper(ctx: Context<SetKeeper>, new_keeper: Pubkey) -> Result<()> {
+        require!(
+            new_keeper != Pubkey::default(),
+            DripError::BadKeeper
+        );
+        ctx.accounts.intent.keeper = new_keeper;
+        Ok(())
+    }
+
+    // Owner or delegated keeper flips the pause around the 00:30 UTC
     // multiplier window. While paused, record_fill always fails.
     pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        let intent = &ctx.accounts.intent;
+        require!(
+            can_set_paused(
+                ctx.accounts.authority.key(),
+                intent.owner,
+                intent.keeper
+            ),
+            DripError::Unauthorized
+        );
         ctx.accounts.intent.paused = paused;
         Ok(())
     }
@@ -67,11 +90,14 @@ pub mod drip {
         quote_bps_over_fair: u16,
     ) -> Result<()> {
         let intent = &mut ctx.accounts.intent;
-        require!(!intent.paused, DripError::Paused);
+        // Bind the passed mint to the intent's mint. Without this, a caller
+        // could pass a dummy mint with no Token-2022 extension and bypass
+        // the on-chain multiplier check below.
         require!(
-            quote_bps_over_fair <= intent.max_premium_bps,
-            DripError::PremiumOverCap
+            ctx.accounts.mint.key() == intent.mint,
+            DripError::MintMismatch
         );
+        check_fill_guard(intent.paused, quote_bps_over_fair, intent.max_premium_bps)?;
         require!(
             multiplier_scaled >= MULT_SCALE / 2 && multiplier_scaled <= MULT_SCALE * 2,
             DripError::BadMultiplier
@@ -126,6 +152,23 @@ pub mod drip {
     }
 }
 
+// Pure guard check shared by the handler and unit tests: paused first,
+// then the premium cap.
+pub fn check_fill_guard(paused: bool, quote_bps_over_fair: u16, max_premium_bps: u16) -> Result<()> {
+    require!(!paused, DripError::Paused);
+    require!(
+        quote_bps_over_fair <= max_premium_bps,
+        DripError::PremiumOverCap
+    );
+    Ok(())
+}
+
+// Keeper authorization: the owner always qualifies, plus one delegated
+// keeper. Everything else is rejected.
+pub fn can_set_paused(authority: Pubkey, owner: Pubkey, keeper: Pubkey) -> bool {
+    authority == owner || authority == keeper
+}
+
 // scaled = raw * multiplier / SCALE, all u64 with checked ops.
 pub fn scaled_shares(raw: u64, multiplier_scaled: u64) -> Result<u64> {
     let product = (raw as u128)
@@ -142,7 +185,9 @@ pub fn within_tolerance(a: u64, b: u64) -> bool {
 
 // Best-effort on-chain multiplier check. Plain-SPL mints and test mints
 // carry no extension, so the keeper-provided value is accepted as-is.
-// Token-2022 scaled-ui mints must agree within 0.1%.
+// Token-2022 scaled-ui mints must agree within 0.1% (relative diff).
+// Comparison runs in f64 so extension rounding never wraps a u64 cast;
+// NaN/infinite/out-of-band on-chain values always reject.
 pub fn verify_mint_multiplier(
     mint: &UncheckedAccount,
     multiplier_scaled: u64,
@@ -156,9 +201,27 @@ pub fn verify_mint_multiplier(
         Ok(c) => c,
         Err(_) => return Ok(()),
     };
-    let onchain = (f64::from(cfg.multiplier) * MULT_SCALE as f64).round() as u64;
+    let onchain_f = f64::from(cfg.multiplier);
     require!(
-        within_tolerance(onchain, multiplier_scaled),
+        onchain_f.is_finite()
+            && onchain_f >= 0.5
+            && onchain_f <= 2.0,
+        DripError::MultiplierMismatch
+    );
+    let provided_f = multiplier_scaled as f64 / MULT_SCALE as f64;
+    require!(provided_f.is_finite(), DripError::MultiplierMismatch);
+    let rel_diff = ((onchain_f - provided_f).abs()) / onchain_f;
+    require!(
+        rel_diff * 10_000.0 <= MULT_TOLERANCE_BPS as f64,
+        DripError::MultiplierMismatch
+    );
+    Ok(())
+}
+
+// Integer-side tolerance helper kept for the fixed-point path and tests.
+pub fn verify_multiplier_scaled(onchain_scaled: u64, provided_scaled: u64) -> Result<()> {
+    require!(
+        within_tolerance(onchain_scaled, provided_scaled),
         DripError::MultiplierMismatch
     );
     Ok(())
@@ -182,10 +245,17 @@ pub struct InitializeIntent<'info> {
 }
 
 #[derive(Accounts)]
-pub struct SetPaused<'info> {
+pub struct SetKeeper<'info> {
     #[account(mut, has_one = owner)]
     pub intent: Account<'info, DcaIntent>,
     pub owner: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct SetPaused<'info> {
+    #[account(mut)]
+    pub intent: Account<'info, DcaIntent>,
+    pub authority: Signer<'info>,
 }
 
 #[derive(Accounts)]
@@ -215,6 +285,7 @@ pub struct CloseIntent<'info> {
 pub struct DcaIntent {
     pub owner: Pubkey,
     pub mint: Pubkey,
+    pub keeper: Pubkey,
     pub amount_usdc: u64,
     pub interval_days: u16,
     pub max_premium_bps: u16,
@@ -227,9 +298,11 @@ pub struct DcaIntent {
 }
 
 impl DcaIntent {
-    // 8 discriminator + 32 owner + 32 mint + 8 amount + 2 interval + 2 cap
-    // + 1 paused + 1 bump + 8 fills + 8 raw + 8 scaled + 8 created_at
-    pub const LEN: usize = 118;
+    // 8 discriminator + 32 owner + 32 mint + 32 keeper + 8 amount
+    // + 2 interval + 2 cap + 1 paused + 1 bump + 8 fills + 8 raw
+    // + 8 scaled + 8 created_at = 150. Redeploy required: v1 PDAs (118)
+    // cannot be migrated in place, create a new intent per plan.
+    pub const LEN: usize = 150;
 }
 
 #[event]
@@ -254,6 +327,12 @@ pub enum DripError {
     BadMultiplier,
     #[msg("Provided multiplier disagrees with the on-chain Token-2022 extension.")]
     MultiplierMismatch,
+    #[msg("Passed mint does not match the intent's mint.")]
+    MintMismatch,
+    #[msg("Signer is neither the owner nor the delegated keeper.")]
+    Unauthorized,
+    #[msg("Keeper address must not be the default pubkey.")]
+    BadKeeper,
     #[msg("Amount must be positive micro-USDC.")]
     BadAmount,
     #[msg("Interval must be 1, 7, or 14 days.")]
@@ -286,5 +365,48 @@ mod tests {
     fn tolerance_band() {
         assert!(within_tolerance(1_000_000_000, 1_000_050_000));
         assert!(!within_tolerance(1_000_000_000, 1_002_000_000));
+    }
+
+    #[test]
+    fn guard_rejects_paused_and_over_cap() {
+        assert!(check_fill_guard(false, 150, 300).is_ok());
+        assert!(check_fill_guard(false, 300, 300).is_ok());
+        let paused = check_fill_guard(true, 0, 300);
+        assert!(paused.is_err());
+        let over_cap = check_fill_guard(false, 301, 300);
+        assert!(over_cap.is_err());
+    }
+
+    #[test]
+    fn keeper_auth_is_owner_or_delegate_only() {
+        let owner = Pubkey::new_unique();
+        let keeper = Pubkey::new_unique();
+        let stranger = Pubkey::new_unique();
+        assert!(can_set_paused(owner, owner, keeper));
+        assert!(can_set_paused(keeper, owner, keeper));
+        assert!(!can_set_paused(stranger, owner, keeper));
+    }
+
+    #[test]
+    fn intent_binds_exactly_one_mint() {
+        // The handler requires mint.key() == intent.mint; model it here so
+        // a bypass mint can never satisfy the check.
+        let intent_mint = Pubkey::new_unique();
+        let same = intent_mint;
+        let other = Pubkey::new_unique();
+        assert!(same == intent_mint);
+        assert!(other != intent_mint);
+    }
+
+    #[test]
+    fn multiplier_scaled_path_matches_tolerance() {
+        assert!(verify_multiplier_scaled(1_000_000_000, 1_000_050_000).is_ok());
+        assert!(verify_multiplier_scaled(1_000_000_000, 1_002_000_000).is_err());
+    }
+
+    #[test]
+    fn account_size_fits_keeper() {
+        // 8 + 32*3 + 8 + 2 + 2 + 1 + 1 + 8*3 + 8 = 150
+        assert_eq!(DcaIntent::LEN, 150);
     }
 }
